@@ -1,0 +1,2 @@
+key = "organizations/eeb44fc5-130b-4766-885f-20aafdc3aa88/apiKeys/2ed64288-951d-4561-b0f9-586b6193e605"
+secret = "-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIAiMmmpIpue2TjO0Lc2Q6XYToFU6qu4wbSFB24O/wYegoAoGCCqGSM49\nAwEHoUQDQgAEdIfP+V4UsXmkJsAayOqdX8VyljpoSwFIDheAVri3SfuoD52QqluQ\nTgNGH/iJcs5mGIkuq2U95AVTa7otP0f0aA==\n-----END EC PRIVATE KEY-----\n"

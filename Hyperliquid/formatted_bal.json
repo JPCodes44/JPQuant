@@ -1,0 +1,40 @@
+{
+    "info": {
+        "code": "0",
+        "msg": "",
+        "data": [
+            {
+                "currency": "BTC",
+                "balanceEv": "10380307",
+                "lockedTradingBalanceEv": "0",
+                "lockedWithdrawEv": "0",
+                "lastUpdateTimeNs": "1740023629108417536",
+                "walletVid": "0"
+            },
+            {
+                "currency": "USDT",
+                "balanceEv": "3775477",
+                "lockedTradingBalanceEv": "0",
+                "lockedWithdrawEv": "0",
+                "lastUpdateTimeNs": "1740023891358413824",
+                "walletVid": "0"
+            },
+            {
+                "currency": "ETH",
+                "balanceEv": "403596",
+                "lockedTradingBalanceEv": "0",
+                "lockedWithdrawEv": "0",
+                "lastUpdateTimeNs": "1739998520964459520",
+                "walletVid": "0"
+            }
+        ]
+    },
+    "BTC": {"free": 0.10380307, "used": 0.0, "total": 0.10380307},
+    "USDT": {"free": 0.03775477, "used": 0.0, "total": 0.03775477},
+    "ETH": {"free": 0.00403596, "used": 0.0, "total": 0.00403596},
+    "timestamp": 1740023891358,
+    "datetime": "2025-02-20T03:58:11.358Z",
+    "free": {"BTC": 0.10380307, "USDT": 0.03775477, "ETH": 0.00403596},
+    "used": {"BTC": 0.0, "USDT": 0.0, "ETH": 0.0},
+    "total": {"BTC": 0.10380307, "USDT": 0.03775477, "ETH": 0.00403596}
+}
