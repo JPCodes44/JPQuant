@@ -1,15 +1,15 @@
 ######## BACKTESTING with backtrader 2024
 
-from datetime import datetime 
-import backtrader as bt 
+from datetime import datetime
+import backtrader as bt
 import backtrader.analyzers as btanalyzers
 
 
 # THIS IS WHERE WE DEFINE OUR STRATEGY
 class SmaCross(bt.SignalStrategy):
-    def __init__(self): 
+    def __init__(self):
         # when simple moving average crosses the price, can change the number
-        sma = bt.ind.SMA(period=20)
+        sma = bt.ind.SMA(period=5)
         # this grabs the price data from the excel
         price = self.data
         # this defines the cross over.. price and sma
@@ -29,15 +29,13 @@ cerebro.addstrategy(SmaCross)
 
 # this is how i use manually pulled data from yahoo finance, prob the one i use for now
 data = bt.feeds.YahooFinanceCSVData(
-
-    dataname = '/Users/arb/Dropbox/dev/yt_vids/atc/BTC-USD.csv',
-   
+    dataname="/Users/jpmak/JPQuant/SOL_USD.csv",
     # do not pass values before this date
     # this is when we want to start the date
-    fromdate=datetime(2017, 1, 6),
+    fromdate=datetime(2024, 12, 16),
     # do not passs values after this date
-    todate = datetime(2022, 5, 4), 
-    reverse = False
+    todate=datetime(2025, 2, 24),
+    reverse=False,
 )
 
 # this sets the cash amount to the back test
@@ -57,41 +55,43 @@ cerebro.addsizer(bt.sizers.AllInSizer, percents=95)
 
 # now adding some analyzers...
 # this one beelow is how we get the sharpe analyzer
-cerebro.addanalyzer(btanalyzers.SharpeRatio, _name = 'sharpe')
+cerebro.addanalyzer(btanalyzers.SharpeRatio, _name="sharpe")
 # this is the transactions analyzer
-cerebro.addanalyzer(btanalyzers.Transactions, _name = 'tx')
+cerebro.addanalyzer(btanalyzers.Transactions, _name="tx")
 # this is the trade analyzer
-cerebro.addanalyzer(btanalyzers.TradeAnalyzer, _name = 'trades')
+cerebro.addanalyzer(btanalyzers.TradeAnalyzer, _name="trades")
 
 cerebro.run()
 
 # now we run our engine & add it to a variable so we can later check perf
-back = cerebro.run() 
+back = cerebro.run()
 
-# this gets our value back 
-endvalue = cerebro.broker.getvalue() 
+# this gets our value back
+endvalue = cerebro.broker.getvalue()
 
 # below we are looking at our 3 analyzers.. sharpe here
-sharpe = back[0].analyzers.sharpe.get_analysis() 
+sharpe = back[0].analyzers.sharpe.get_analysis()
 
 
 # this is running out transaction analyzer
-txs = back[0].analyzers.tx.get_analysis() 
+txs = back[0].analyzers.tx.get_analysis()
 
 # this is running our trades analzer
-trades = back[0].analyzers.trades.get_analysis() 
+trades = back[0].analyzers.trades.get_analysis()
 
-#print(txs)
+# print(txs)
 
 txamount = len(txs)
 
-#print(f"ending value is {endvalue}")
-print(f"sharpe ratio is {sharpe} and this many txs: {txamount} final value {cerebro.broker.getvalue()}")
-#print(f"transactions are {txs}")
-#print(f"trades are {trades}")
+# print(f"ending value is {endvalue}")
+print(
+    f"sharpe ratio is {sharpe} and this many txs: {txamount} final value {cerebro.broker.getvalue()}"
+)
+# print(f"transactions are {txs}")
+# print(f"trades are {trades}")
 
 # this shows the final portfolio value
-#print("final protfolio value: %.2f" % cerebro.broker.getvalue())
+# print("final protfolio value: %.2f" % cerebro.broker.getvalue())
 
 
 # this plots the backtest
