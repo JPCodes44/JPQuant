@@ -18,5 +18,8 @@ def trend_lines(df):
     
     data1 = data0.copy()
     while len(data1) > 3:
-        slope, intercept, r_value, p_value, std_err = linregress(x=data1['date_id'].values.tolist(), y=data1['Close'].values.tolist())
-    data0['high_trend'] = top_slope * data0['date_id'] + intercept
+        slope, intercept, r_value, p_value, std_err = linregress(x=data1['date_id'].values.tolist(), y=data1['Low'].values.tolist())
+        data1['Low'] = data1.loc(data1['Low'] < slope * data1['date_id']+intercept)
+        
+    bot_slope, intercept, r_value, p_value, std_err = linregress(x=data1['date_id'].values.tolist(), y=data1['Low'].values.tolist())
+    data0['Low'] = data1.loc(data1['Low'] < slope * data1['date_id']+intercept)
