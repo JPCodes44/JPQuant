@@ -6,9 +6,9 @@ import dont_share as d
 import coinbase_dont_share as c
 from math import ceil
 
-symbol = "SOL/USD"
-timeframe = "1d"
-weeks = 270
+symbol = "BTC/USD"
+timeframe = "1m"
+weeks = 2
 
 
 def timeframe_to_sec(timeframe):
