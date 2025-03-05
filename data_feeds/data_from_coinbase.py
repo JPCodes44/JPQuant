@@ -6,9 +6,12 @@ import dont_share as d
 import coinbase_dont_share as c
 from math import ceil
 
-symbol = "BTC/USD"
-timeframe = "1m"
-weeks = 2
+symbol = "ETH/USD"
+timeframe = "1d"
+weeks = 480
+SAVE_FOLDER = (
+    "/Users/jpmak/JPQuant/data"  # Or an absolute path like "/Users/jpmak/JPQuant/data"
+)
 
 
 def timeframe_to_sec(timeframe):
@@ -26,6 +29,12 @@ def timeframe_to_sec(timeframe):
 
 
 def get_historical_data(symbol, timeframe, weeks):
+
+    # If you want to re-use the same naming logic, you can do:
+    csv_filename = f"{symbol[0:3]}-{timeframe}-{weeks}wks_data.csv"
+
+    # Construct the full path to the CSV file using os.path.join
+    csv_path = os.path.join(SAVE_FOLDER, csv_filename)
 
     if os.path.exists(f"{symbol}{timeframe}{weeks}.csv"):
         return pd.read_csv(f"{symbol}{timeframe}{weeks}.csv")
@@ -56,7 +65,9 @@ def get_historical_data(symbol, timeframe, weeks):
 
     dataframe = dataframe.set_index("datetime")
     dataframe = dataframe[["open", "high", "low", "close", "volume"]]
-    dataframe.to_csv(f"{symbol[0:3]}-{timeframe}-{weeks}wks_data.csv")
+
+    # Instead of writing to the root, write to csv_path
+    dataframe.to_csv(csv_path)
 
     return dataframe
 

@@ -3,49 +3,51 @@ import pandas as pd
 import talib
 
 
-class FixedMomentumStrategy(Strategy):
-    # Default periods; feel free to optimize these with bt.optimize
-    short_period = 50
-    long_period = 200
+class VolumeSpikeStrategy(Strategy):
+    # This ratio determines how big the spike must be
+    # relative to the average volume. For example, 2.0 = 200% spike.
+    volume_spike_ratio = 2.0
 
     def init(self):
-        # Compute short and long SMAs using TA-Lib
-        self.sma_short = self.I(talib.SMA, self.data.Close, self.short_period)
-        self.sma_long = self.I(talib.SMA, self.data.Close, self.long_period)
+        # Calculate the 20-period SMA of volume for comparison
+        self.avg_volume = self.I(SMA, self.data.Volume, 20)
 
     def next(self):
-        # If short SMA is above long SMA => uptrend => ensure we are long
-        if self.sma_short[-1] > self.sma_long[-1]:
-            if not self.position:
-                self.buy()  # enter long if not already in a position
-        else:
-            # If short SMA is below long SMA => downtrend => close any open position
-            if self.position:
-                self.position.close()
+        # Current volume and average volume
+        current_vol = self.data.Volume[-1]
+        avg_vol = self.avg_volume[-1]
+
+        # Check for a volume spike
+        if current_vol > self.volume_spike_ratio * avg_vol:
+            print(f"Volume spike detected on {self.data.index[-1]}")
+
+            # Calculate stop loss and take profit prices
+            stop_loss = self.data.Close[-1] * 0.95  # e.g., 5% below current close
+            take_profit = self.data.Close[-1] * 1.10  # e.g., 10% above current close
+            print(f"Executing Buy: SL={stop_loss}, TP={take_profit}")
+
+            # Enter a long position with the specified SL and TP
+            self.buy(sl=stop_loss, tp=take_profit)
 
 
 if __name__ == "__main__":
-    # Load your CSV data (BTC daily data)
-    data = pd.read_csv(
-        "/Users/jpmak/JPQuant/data/SOL-1d-270wks_data.csv",
-        index_col=0,
+    # Load your CSV data (replace with your actual path)
+    df = pd.read_csv(
+        "/Users/jpmak/JPQuant/data/ETH-USD-15m-2020-01-01to0.csv",
         parse_dates=True,
+        index_col=0,
     )
-    # Ensure columns match what backtesting.py expects: "Open", "High", "Low", "Close", "Volume"
-    data.columns = [col.capitalize() for col in data.columns]
-    data.dropna(inplace=True)
 
-    # Initialize and run the backtest
-    bt = Backtest(data, FixedMomentumStrategy, cash=10000, commission=0.002)
+    # If needed, ensure column names match what backtesting.py expects:
+    # "Open", "High", "Low", "Close", "Volume"
+    df.columns = [col.capitalize() for col in df.columns]
+    df.dropna(inplace=True)
 
-    # (Optional) Optimize the short/long SMA periods
-    # stats = bt.optimize(
-    #     short_period=range(10, 60, 5),
-    #     long_period=range(100, 300, 20),
-    #     maximize='Equity Final [$]'
-    # )
+    # Create and run the backtest
+    from backtesting import Backtest
 
-    # If not optimizing, just run the strategy with default parameters
+    bt = Backtest(df, VolumeSpikeStrategy, cash=10000, commission=0.002)
+
     stats = bt.run()
     print(stats)
     bt.plot()
