@@ -17,3 +17,9 @@ import warnings
 import pandas as pd
 from strats_26 import *
 from dataset import get_candles_since_date
+
+
+def run_backtest(stratName, symbol, timeframe, start_time, plot=True, save_data=True):
+
+    # data = pd.read_csv('feb23/BTC-USD-15m_filled.csv', index_col='datetime', parse_dates=True)
+    data = get_candles_since_date(symbol)
