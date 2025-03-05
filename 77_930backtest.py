@@ -14,7 +14,7 @@ from multiprocessing import Pool
 
 
 # Define a trading strategy class inheriting from Strategy
-class SMATrading(Strategy):
+class SMATradingStrategy(Strategy):
     # Set stop loss percentage
     stop_loss_pct = 5
     # Set take profit percentage
@@ -28,7 +28,7 @@ class SMATrading(Strategy):
         self.exit_hour = 10
 
     def next(self):
-        hour = pd.Timestamp(self.data.Datetime[-1]).to_pydatetime().hour
+        hour = pd.Timestamp(self.data.datetime[-1]).to_pydatetime().hour
 
         if self.position:
             if hour >= self.exit_hour:
@@ -46,18 +46,23 @@ class SMATrading(Strategy):
 if __name__ == "__main__":
     # Read CSV data into a pandas DataFrame
     data = pd.read_csv(
-        "/Users/jpmak/JPQuant/data/BTC-1m-2wks_data.csv", index_col=0, parse_dates=True
+        "/Users/jpmak/JPQuant/data/BTC-1d-418wks_data.csv",
+        index_col=0,
+        parse_dates=True,
     )
     # Capitalize the column names
     data.columns = [column.capitalize() for column in data.columns]
     data = data.dropna()
 
     # Create a Backtest object with the data and strategy
-    bt = Backtest(data, SMATrading, cash=1000000, commission=0.002)
+    bt = Backtest(data, SMATradingStrategy, cash=1000000, commission=0.002)
 
-    # Optimize the strategy to maximize final equity
-    output = bt.optimize(maximize="Equity Final [$]", n1=range(5, 40, 1))
-    # Print the optimization results
-    print(output)
-    # Plot the backtest results
+    result = bt.optimize(
+        maximize="Equity Final [$]",
+        stop_loss_pct=range(5, 20),
+        take_profit_pct=range(1, 10),
+    )
+
+    print(result)
+
     bt.plot()
