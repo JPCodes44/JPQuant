@@ -13,7 +13,6 @@ phemex = ccxt.phemex(
         "enableRateLimit": True,
         "apiKey": k.key,
         "secret": k.secret,
-        "options": {"testnet": True},  # use Phemex Testnet
     }
 )
 phemex.set_sandbox_mode(True)
