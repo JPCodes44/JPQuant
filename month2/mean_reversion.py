@@ -1,8 +1,11 @@
+import os
 from backtesting import Backtest, Strategy
 import pandas as pd
 import numpy as np
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.sandbox.stats.runs import runstest_1samp
+
+DATA_FOLDER = "/Users/jpmak/JPQuant/data"
 
 
 class MeanReversionStrategy(Strategy):
@@ -57,23 +60,39 @@ class MeanReversionStrategy(Strategy):
                 self.position.close()
 
 
-# Load your BTC price data
-btc_data = pd.read_csv(
-    "/Users/jpmak/JPQuant/data/BTC-1d-418wks_data.csv",
-    index_col=0,
-    parse_dates=True,
-)
+for filename in os.listdir(DATA_FOLDER):
+    if filename.endswith(".csv") or filename.endswith(".xlsk"):
+        file_path = os.path.join(DATA_FOLDER, filename)
 
-df = pd.DataFrame(
-    btc_data, columns=["timestamp", "open", "high", "low", "close", "volume"]
-)
+        # Load the data
+        if filename.endswith(".csv"):
+            # Load your BTC price data
+            btc_data = pd.read_csv(
+                file_path,
+                index_col=0,
+                parse_dates=True,
+            )
+        else:
+            df = pd.read_excel(file_path, parse_dates=True, index_col="datetime")
 
-df.columns = ["Timestamp", "Open", "High", "Low", "Close", "Volume"]  # Rename columns
+        print(f"📊 Running backtest on: {filename}")
 
+        df = pd.DataFrame(
+            btc_data, columns=["timestamp", "open", "high", "low", "close", "volume"]
+        )
 
-# Backtest
-bt = Backtest(df, MeanReversionStrategy, cash=10_000, commission=0.002)
-results = bt.run()
-print(results)
+        df.columns = [
+            "Timestamp",
+            "Open",
+            "High",
+            "Low",
+            "Close",
+            "Volume",
+        ]  # Rename columns
 
-bt.plot()
+        # Backtest
+        bt = Backtest(df, MeanReversionStrategy, cash=10_000, commission=0.002)
+        results = bt.run()
+        print(results)
+
+        bt.plot()

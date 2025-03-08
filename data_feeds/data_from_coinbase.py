@@ -9,8 +9,8 @@ from math import ceil
 symbol = "BTC/USD"
 timeframe = "1d"
 weeks = 480
-start_date = "2018-03-15"
-end_date = "2020-01-04"
+start_date = "2017-01-02"
+end_date = "2019-08-14"
 SAVE_FOLDER = (
     "/Users/jpmak/JPQuant/data"  # Or an absolute path like "/Users/jpmak/JPQuant/data"
 )
