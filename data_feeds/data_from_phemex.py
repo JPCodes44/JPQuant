@@ -9,7 +9,7 @@ from math import ceil
 # Set the trading pair and timeframe
 symbol = "ETHUSD"  # Use the format expected by Phemex (without a slash)
 timeframe = "1d"  # 1-day candles
-weeks = 480  # Number of weeks of data to fetch
+weeks = 219  # Number of weeks of data to fetch
 
 # Specify the folder where the CSV file will be saved
 SAVE_FOLDER = "/Users/jpmak/JPQuant/data"
