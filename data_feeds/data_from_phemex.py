@@ -7,9 +7,11 @@ import coinbase_dont_share as c  # Module containing your API keys (likely for P
 from math import ceil
 
 # Set the trading pair and timeframe
-symbol = "ETHUSD"  # Use the format expected by Phemex (without a slash)
+symbol = "BTCUSD"  # Use the format expected by Phemex (without a slash)
 timeframe = "1d"  # 1-day candles
-weeks = 219  # Number of weeks of data to fetch
+weeks = 200  # Number of weeks of data to fetch
+start_date = "2018-03-15"
+end_date = "2020-01-04"
 
 # Specify the folder where the CSV file will be saved
 SAVE_FOLDER = "/Users/jpmak/JPQuant/data"
@@ -32,7 +34,7 @@ def timeframe_to_sec(timeframe):
         )
 
 
-def get_historical_data(symbol, timeframe, weeks):
+def get_historical_data(symbol, timeframe, weeks, start_date, end_date):
     """
     Fetches historical OHLCV data from Phemex testnet for the given symbol and timeframe.
     It then saves the data as a CSV file in the SAVE_FOLDER.
@@ -94,12 +96,12 @@ def get_historical_data(symbol, timeframe, weeks):
     # Set 'datetime' as the DataFrame index and order columns properly
     dataframe = dataframe.set_index("datetime")
     dataframe = dataframe[["open", "high", "low", "close", "volume"]]
-
+    print(dataframe)
     # Save the combined DataFrame to CSV in the specified folder
-    dataframe.to_csv(csv_path)
+    dataframe.loc[start_date:end_date].to_csv(csv_path)
 
     return dataframe
 
 
 # Print the DataFrame returned by get_historical_data()
-print(get_historical_data(symbol, timeframe, weeks))
+print(get_historical_data(symbol, timeframe, weeks, start_date, end_date))

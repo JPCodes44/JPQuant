@@ -6,9 +6,11 @@ import dont_share as d
 import coinbase_dont_share as c
 from math import ceil
 
-symbol = "ETH/USD"
+symbol = "BTC/USD"
 timeframe = "1d"
 weeks = 480
+start_date = "2018-03-15"
+end_date = "2020-01-04"
 SAVE_FOLDER = (
     "/Users/jpmak/JPQuant/data"  # Or an absolute path like "/Users/jpmak/JPQuant/data"
 )
@@ -28,10 +30,10 @@ def timeframe_to_sec(timeframe):
         )
 
 
-def get_historical_data(symbol, timeframe, weeks):
+def get_historical_data(symbol, timeframe, weeks, start_date, end_date):
 
     # If you want to re-use the same naming logic, you can do:
-    csv_filename = f"{symbol[0:3]}-{timeframe}-{weeks}wks_data.csv"
+    csv_filename = f"{symbol[0:3]}-{timeframe}-{start_date}-{end_date}_data.csv"
 
     # Construct the full path to the CSV file using os.path.join
     csv_path = os.path.join(SAVE_FOLDER, csv_filename)
@@ -67,9 +69,10 @@ def get_historical_data(symbol, timeframe, weeks):
     dataframe = dataframe[["open", "high", "low", "close", "volume"]]
 
     # Instead of writing to the root, write to csv_path
-    dataframe.to_csv(csv_path)
+    dataframe.loc[start_date:end_date].to_csv(csv_path)
 
     return dataframe
 
 
-print(get_historical_data(symbol, timeframe, weeks))
+# Print the DataFrame returned by get_historical_data()
+print(get_historical_data(symbol, timeframe, weeks, start_date, end_date))
