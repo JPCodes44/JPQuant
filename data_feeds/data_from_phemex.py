@@ -1,17 +1,27 @@
-import pandas as pd
-import datetime
-import os
-import ccxt
-import dont_share as d  # Module containing your API keys for one exchange (or settings)
-import coinbase_dont_share as c  # Module containing your API keys (likely for Phemex testnet)
-from math import ceil
+import pandas as pd  # Import pandas for data manipulation and analysis
+import datetime  # Import datetime for handling date and time
+import os  # Import os for interacting with the operating system
+import ccxt  # Import ccxt for cryptocurrency trading library
+import random  # Import random for generating random numbers
+import warnings  # Import warnings to handle warning messages
+import numpy as np  # Import numpy for numerical operations
+import key_file as k  # Import key_file for API keys
+from math import ceil  # Import ceil for rounding up numbers
 
 # Set the trading pair and timeframe
-symbol = "BTCUSD"  # Use the format expected by Phemex (without a slash)
+symbol = "ETHUSD"  # Use the format expected by Phemex (without a slash)
 timeframe = "1d"  # 1-day candles
 weeks = 200  # Number of weeks of data to fetch
-start_date = "2018-03-15"
-end_date = "2020-01-04"
+date_range = pd.date_range(start="2017-01-02", end="2024-08-14")  # Full year of dates
+dates = np.array(date_range)  # Convert to NumPy array for indexing
+
+dates = pd.to_datetime(dates)  # Convert dates to datetime format
+print(dates)  # Print the dates
+# Suppress only DeprecationWarnings
+warnings.simplefilter("ignore", category=DeprecationWarning)
+
+# Suppress only FutureWarnings
+warnings.simplefilter(action="ignore", category=FutureWarning)
 
 # Specify the folder where the CSV file will be saved
 SAVE_FOLDER = "/Users/jpmak/JPQuant/data"
@@ -41,14 +51,16 @@ def get_historical_data(symbol, timeframe, weeks, start_date, end_date):
     """
 
     # Create the filename based on symbol, timeframe, and weeks
-    csv_filename = f"{symbol[0:3]}-{timeframe}-{weeks}wks_data.csv"
+    csv_filename = f"{symbol[0:3]}-{timeframe}-{start_date}-{end_date}_data.csv"
 
     # Construct the full path to the CSV file in the specified SAVE_FOLDER
     csv_path = os.path.join(SAVE_FOLDER, csv_filename)
 
-    # # If the CSV already exists, read and return the data from the file
-    # if os.path.exists(csv_path):
-    #     return pd.read_csv(csv_path)
+    # Check if the CSV file already exists
+    if os.path.exists(csv_path):
+        print("file already exists")
+        # If the file exists, read the CSV file and return the DataFrame
+        return pd.read_csv(csv_path)
 
     # Get the current UTC time
     now = datetime.datetime.utcnow()
@@ -56,12 +68,11 @@ def get_historical_data(symbol, timeframe, weeks, start_date, end_date):
     # Initialize the Phemex exchange using ccxt with your testnet credentials
     phemex = ccxt.phemex(
         {
-            "apikey": c.key,  # Replace with your testnet API key from coinbase_dont_share module
-            "secret": c.secret,  # Replace with your testnet secret key
+            "apikey": k.key,  # Replace with your testnet API key from key_file module
+            "secret": k.secret,  # Replace with your testnet secret key
             "enableRateLimit": True,
         }
     )
-    # Enable sandbox mode for testnet
     # Convert the timeframe (e.g., "1d") to seconds for API calculations
     granularity = timeframe_to_sec(timeframe)
 
@@ -87,21 +98,40 @@ def get_historical_data(symbol, timeframe, weeks, start_date, end_date):
         # Convert the timestamp column from milliseconds to a datetime object
         df["datetime"] = pd.to_datetime(df["datetime"], unit="ms")
 
-        # # Remove any columns that are entirely empty or contain only NA values
+        # Remove any columns that are entirely empty or contain only NA values
         df_clean = df.dropna(axis=1, how="all")
         dataframe_clean = dataframe.dropna(axis=1, how="all")
-        # # Concatenate the current batch with the previously fetched data
+        # Concatenate the current batch with the previously fetched data
         dataframe = pd.concat([df_clean, dataframe_clean])
 
     # Set 'datetime' as the DataFrame index and order columns properly
     dataframe = dataframe.set_index("datetime")
     dataframe = dataframe[["open", "high", "low", "close", "volume"]]
-    print(dataframe)
+    print(dataframe)  # Print the dataframe
     # Save the combined DataFrame to CSV in the specified folder
+    dataframe = dataframe[~dataframe.index.duplicated(keep="first")]
     dataframe.loc[start_date:end_date].to_csv(csv_path)
 
     return dataframe
 
 
-# Print the DataFrame returned by get_historical_data()
-print(get_historical_data(symbol, timeframe, weeks, start_date, end_date))
+def csvs_of_random_windows(symbol, timeframe, weeks, dates, num_csv):
+    for i in range(num_csv):
+        # Choose left index randomly
+        left = np.random.randint(0, len(dates) - 1)  # Ensures space for right
+
+        # Choose right index randomly (always > left)
+        right = np.random.randint(left + 1, len(dates))  # Ensures left < right
+
+        start_date = dates[left]
+        end_date = dates[right]
+
+        print(f"🎨✨ Creating sheet #{i + 1} from {start_date} to {end_date}")
+        get_historical_data(symbol, timeframe, weeks, start_date, end_date)
+    print("Done boiiiiiiiii")
+
+
+# Generate CSVs of random windows
+csvs_of_random_windows(
+    symbol=symbol, timeframe=timeframe, weeks=weeks, dates=dates, num_csv=10
+)

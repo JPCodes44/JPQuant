@@ -4,13 +4,23 @@ import os
 import ccxt
 import dont_share as d
 import coinbase_dont_share as c
+import random
+import numpy as np
+import warnings
 from math import ceil
 
 symbol = "BTC/USD"
 timeframe = "1d"
-weeks = 480
-start_date = "2017-01-02"
-end_date = "2019-08-14"
+weeks = 680
+date_range = pd.date_range(start="2017-01-02", end="2024-08-14")  # Full year of dates
+dates = np.array(date_range)  # Convert to NumPy array for indexing
+
+# ✅ Suppress only DeprecationWarnings
+warnings.simplefilter("ignore", category=DeprecationWarning)
+
+# ✅ Suppress only FutureWarnings
+warnings.simplefilter(action="ignore", category=FutureWarning)
+
 SAVE_FOLDER = (
     "/Users/jpmak/JPQuant/data"  # Or an absolute path like "/Users/jpmak/JPQuant/data"
 )
@@ -38,8 +48,9 @@ def get_historical_data(symbol, timeframe, weeks, start_date, end_date):
     # Construct the full path to the CSV file using os.path.join
     csv_path = os.path.join(SAVE_FOLDER, csv_filename)
 
-    if os.path.exists(f"{symbol}{timeframe}{weeks}.csv"):
-        return pd.read_csv(f"{symbol}{timeframe}{weeks}.csv")
+    if os.path.exists(csv_path):
+        print("file alr exists")
+        return pd.read_csv(csv_path)
 
     now = datetime.datetime.utcnow()
     coinbase = ccxt.coinbase(
@@ -74,5 +85,38 @@ def get_historical_data(symbol, timeframe, weeks, start_date, end_date):
     return dataframe
 
 
-# Print the DataFrame returned by get_historical_data()
-print(get_historical_data(symbol, timeframe, weeks, start_date, end_date))
+def csvs_of_random_windows(symbol, timeframe, weeks, dates, num_csv):
+    for i in range(num_csv):
+        # try:
+        #     # ✅ Choose left index randomly
+        #     left = np.random.randint(0, len(dates) - 1)  # Ensures space for right
+
+        #     # ✅ Choose right index randomly (always > left)
+        #     right = np.random.randint(left + 1, len(dates))  # Ensures left < right
+
+        #     get_historical_data(symbol, timeframe, weeks, left, right)
+        # except Exception as e:
+        #     print(
+        #         f"{e} - Either your window_length is too small or your buffer is too big, fix pls"
+        #     )
+
+        # Choose left index randomly
+        left = np.random.randint(0, len(dates) - 1)  # Ensures space for right
+
+        # Choose right index randomly (always > left)
+        right = np.random.randint(left + 1, len(dates))  # Ensures left < right
+
+        start_date = dates[left]
+        end_date = dates[right]
+
+        print(f"🎨✨ Creating sheet #{i + 1} from {start_date} to {end_date}")
+        get_historical_data(symbol, timeframe, weeks, start_date, end_date)
+    print("Done boiiiiiiiii")
+
+
+# Manual fetch
+# get_historical_data(symbol, timeframe, weeks, "2025-03-09", "2016-01-02")
+
+csvs_of_random_windows(
+    symbol=symbol, timeframe=timeframe, weeks=weeks, dates=dates, num_csv=10
+)
