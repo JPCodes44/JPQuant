@@ -4,12 +4,11 @@ import os
 import ccxt
 import dont_share as d
 import coinbase_dont_share as c
-import random
 import numpy as np
 import warnings
 from math import ceil
 
-symbol = "SOL/USD"
+symbol = "BTC/USD"
 timeframe = "1d"
 weeks = 680
 date_range = pd.date_range(start="2021-01-02", end="2025-02-14")  # Full year of dates
@@ -40,7 +39,7 @@ def timeframe_to_sec(timeframe):
         )
 
 
-def get_historical_data(symbol, timeframe, weeks, start_date, end_date, csv_path):
+def get_historical_data(symbol, timeframe, weeks):
 
     now = datetime.datetime.utcnow()
     coinbase = ccxt.coinbase(
@@ -109,9 +108,7 @@ def csvs_of_random_windows(symbol, timeframe, weeks, dates, num_csv):
             return pd.read_csv(csv_path)
 
         print(f"🎨✨ Creating sheet #{i + 1} from {start_date} to {end_date}")
-        dataframe = get_historical_data(
-            symbol, timeframe, weeks, start_date, end_date, csv_path
-        )
+        dataframe = get_historical_data(symbol, timeframe, weeks)
 
         # Check if the DataFrame is empty or contains only column titles
         if dataframe.loc[start_date:end_date].shape[0] <= 1:

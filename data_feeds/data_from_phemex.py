@@ -2,7 +2,6 @@ import pandas as pd  # Import pandas for data manipulation and analysis
 import datetime  # Import datetime for handling date and time
 import os  # Import os for interacting with the operating system
 import ccxt  # Import ccxt for cryptocurrency trading library
-import random  # Import random for generating random numbers
 import warnings  # Import warnings to handle warning messages
 import numpy as np  # Import numpy for numerical operations
 import key_file as k  # Import key_file for API keys
@@ -42,7 +41,7 @@ def timeframe_to_sec(timeframe):
         )
 
 
-def get_historical_data(symbol, timeframe, weeks, start_date, end_date):
+def get_historical_data(symbol, timeframe, weeks):
     """
     Fetches historical OHLCV data from Phemex testnet for the given symbol and timeframe.
     It then saves the data as a CSV file in the SAVE_FOLDER.
@@ -128,9 +127,9 @@ def csvs_of_random_windows(symbol, timeframe, weeks, dates, num_csv):
             continue
 
         print(f"🎨✨ Creating sheet #{i + 1} from {start_date} to {end_date}")
-        dataframe = get_historical_data(
-            symbol, timeframe, weeks, start_date, end_date
-        )  # Fetch historical data
+
+        # Fetch historical data
+        dataframe = get_historical_data(symbol, timeframe, weeks)
 
         if (
             dataframe.loc[start_date:end_date].shape[0] <= 1
