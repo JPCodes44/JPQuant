@@ -20,6 +20,7 @@
         "ETHUSD",
         "fromdate",
         "iloc",
+        "isna",
         "jpmak",
         "linregress",
         "lookback",
