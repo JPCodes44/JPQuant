@@ -3,16 +3,19 @@ from backtesting.lib import crossover
 import talib as ta
 from run_it_back import run_backtest
 
-# ++++++++++++++++++++++++ PUT YOUR STRATEGY BELOW +++++++++++++++++++++++++
+# ======================================================================
 
 
 class EMACrossoverRSIStrategy(Strategy):
+
+    # --- PARAMS GO HERE ----
     short_ema_period = 9
     long_ema_period = 26
     rsi_period = 14
     rsi_entry_threshold = 55
     rsi_exit_threshold = 45
 
+    # --- VARIABLES CONTAINING INDICATORS AND OTHER SETUP SHIT GOES HERE ----
     def init(self):
         self.short_ema = self.I(
             lambda x: ta.EMA(x, timeperiod=self.short_ema_period), self.data.Close
@@ -24,6 +27,7 @@ class EMACrossoverRSIStrategy(Strategy):
             lambda x: ta.RSI(x, timeperiod=self.rsi_period), self.data.Close
         )
 
+    # --- ACTUAL LOGIC GOES HERE ----
     def next(self):
         if (
             crossover(self.short_ema, self.long_ema)
@@ -38,6 +42,7 @@ class EMACrossoverRSIStrategy(Strategy):
             self.position.close()
 
 
-# ++++++++++++++++++++++++ PUT YOUR STRATEGY ABOVE +++++++++++++++++++++++++
+# ======================================================================
+
 
 run_backtest(EMACrossoverRSIStrategy)
