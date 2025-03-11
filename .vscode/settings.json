@@ -36,6 +36,8 @@
         "Stationarity",
         "stattools",
         "strats",
+        "talib",
+        "timeperiod",
         "todate",
         "txamount"
     ]

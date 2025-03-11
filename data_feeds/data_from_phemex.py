@@ -145,6 +145,9 @@ def csvs_of_random_windows(symbol, timeframe, weeks, dates, num_csv):
     print("Done boiiiiiiiii")
 
 
+# Manual fetch
+# get_historical_data(symbol, timeframe, weeks, "2025-03-09", "2016-01-02")
+
 # Generate CSVs of random windows
 csvs_of_random_windows(
     symbol=symbol, timeframe=timeframe, weeks=weeks, dates=dates, num_csv=10

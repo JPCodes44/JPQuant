@@ -1,5 +1,7 @@
 import os
 from backtesting import Backtest, Strategy
+from backtesting.lib import crossover
+from backtesting.test import SMA, RSI
 import pandas as pd
 import numpy as np
 import warnings
@@ -20,6 +22,11 @@ warnings.simplefilter("ignore", category=DeprecationWarning)
 
 # Suppress only FutureWarnings
 warnings.simplefilter(action="ignore", category=FutureWarning)
+
+# Suppress only UserWarning
+warnings.simplefilter(action="ignore", category=UserWarning)
+
+# ++++++++++++++++++++++++ PUT YOUR STRATEGY BELOW +++++++++++++++++++++++++
 
 
 class MeanReversionStrategy(Strategy):
@@ -63,13 +70,11 @@ class MeanReversionStrategy(Strategy):
         # )
 
     def next(self):
-        # If today's close equals the 10-day minimum, trigger a buy
-        if self.data.Close[-1] == self.min_low[-1]:
-
+        tolerance = 0.09  # 0.1% tolerance, adjust as needed
+        if self.data.Close[-1] <= self.min_low[-1] * (1 + tolerance):
             if not self.position:
                 self.buy()
         else:
-            # Close position after one day if already in position
             if self.position:
                 self.position.close()
 

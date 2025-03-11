@@ -11,7 +11,7 @@ from math import ceil
 symbol = "BTC/USD"
 timeframe = "1d"
 weeks = 680
-date_range = pd.date_range(start="2021-01-02", end="2025-02-14")  # Full year of dates
+date_range = pd.date_range(start="2015-01-02", end="2025-02-14")  # Full year of dates
 dates = np.array(date_range)  # Convert to NumPy array for indexing
 
 # ✅ Suppress only DeprecationWarnings
