@@ -11,8 +11,8 @@ from math import ceil
 
 symbol = "SOL/USD"
 timeframe = "1d"
-weeks = 50
-date_range = pd.date_range(start="2021-01-02", end="2024-08-14")  # Full year of dates
+weeks = 680
+date_range = pd.date_range(start="2021-01-02", end="2025-02-14")  # Full year of dates
 dates = np.array(date_range)  # Convert to NumPy array for indexing
 
 # ✅ Suppress only DeprecationWarnings

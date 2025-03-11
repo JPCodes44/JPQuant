@@ -9,12 +9,12 @@ import key_file as k  # Import key_file for API keys
 from math import ceil  # Import ceil for rounding up numbers
 
 # Set the trading pair and timeframe
-symbol = "SOLUSD"  # Use the format expected by Phemex (without a slash)
+symbol = "ADAUSD"  # Use the format expected by Phemex (without a slash)
 timeframe = "1d"  # 1-day candles
 weeks = 680  # Number of weeks of data to fetch
-date_range = pd.date_range(start="2017-01-02", end="2020-08-14")  # Full year of dates
+date_range = pd.date_range(start="2020-01-02", end="2025-02-14")  # Full year of dates
 dates = np.array(date_range)  # Convert to NumPy array for indexing
-dates = pd.to_datetime(dates)
+dates = pd.to_datetime(dates)  # Convert dates to datetime format
 # Suppress only DeprecationWarnings
 warnings.simplefilter("ignore", category=DeprecationWarning)
 
@@ -29,11 +29,11 @@ def timeframe_to_sec(timeframe):
     """
     Converts a timeframe string (e.g., '1d', '15m', '1h') to seconds.
     """
-    if "m" in timeframe:
+    if "m" in timeframe:  # Check if timeframe is in minutes
         return int("".join([char for char in timeframe if char.isnumeric()])) * 60
-    elif "h" in timeframe:
+    elif "h" in timeframe:  # Check if timeframe is in hours
         return int("".join([char for char in timeframe if char.isnumeric()])) * 60 * 60
-    elif "d" in timeframe:
+    elif "d" in timeframe:  # Check if timeframe is in days
         return (
             int("".join([char for char in timeframe if char.isnumeric()]))
             * 24
@@ -42,15 +42,12 @@ def timeframe_to_sec(timeframe):
         )
 
 
-# This will fetch data from the total weeks and not the time range (will have to fix later)
 def get_historical_data(symbol, timeframe, weeks, start_date, end_date):
     """
     Fetches historical OHLCV data from Phemex testnet for the given symbol and timeframe.
     It then saves the data as a CSV file in the SAVE_FOLDER.
     """
-
-    # Get the current UTC time
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.utcnow()  # Get the current UTC time
 
     # Initialize the Phemex exchange using ccxt with your testnet credentials
     phemex = ccxt.phemex(
@@ -60,95 +57,96 @@ def get_historical_data(symbol, timeframe, weeks, start_date, end_date):
             "enableRateLimit": True,
         }
     )
-    # Convert the timeframe (e.g., "1d") to seconds for API calculations
-    granularity = timeframe_to_sec(timeframe)
+    granularity = timeframe_to_sec(timeframe)  # Convert the timeframe to seconds
 
-    # Calculate the total time in seconds for the given number of weeks
-    total_time = weeks * 7 * 24 * 60 * 60
-    # Determine how many batches of 200 candles are needed
-    run_times = ceil(total_time / (granularity * 200))
+    total_time = (
+        weeks * 7 * 24 * 60 * 60
+    )  # Calculate the total time in seconds for the given number of weeks
+    run_times = ceil(
+        total_time / (granularity * 200)
+    )  # Determine how many batches of 200 candles are needed
 
-    # Initialize an empty DataFrame to accumulate all fetched data
-    dataframe = pd.DataFrame()
+    dataframe = (
+        pd.DataFrame()
+    )  # Initialize an empty DataFrame to accumulate all fetched data
 
     for i in range(run_times):
-        # Calculate the 'since' timestamp for this batch (in UTC)
-        since = now - datetime.timedelta(seconds=granularity * 200 * (i + 1))
+        since = now - datetime.timedelta(
+            seconds=granularity * 200 * (i + 1)
+        )  # Calculate the 'since' timestamp for this batch (in UTC)
         since_timestamp = int(since.timestamp()) * 1000  # Convert to milliseconds
 
-        # Fetch OHLCV data with a limit of 200 bars starting from 'since_timestamp'
-        data = phemex.fetch_ohlcv(symbol, timeframe, since=since_timestamp, limit=200)
+        data = phemex.fetch_ohlcv(
+            symbol, timeframe, since=since_timestamp, limit=200
+        )  # Fetch OHLCV data with a limit of 200 bars starting from 'since_timestamp'
 
-        # Create a DataFrame from the fetched data and name the columns accordingly
         df = pd.DataFrame(
             data, columns=["datetime", "open", "high", "low", "close", "volume"]
-        )
-        # Convert the timestamp column from milliseconds to a datetime object
-        df["datetime"] = pd.to_datetime(df["datetime"], unit="ms")
+        )  # Create a DataFrame from the fetched data and name the columns accordingly
+        df["datetime"] = pd.to_datetime(
+            df["datetime"], unit="ms"
+        )  # Convert the timestamp column from milliseconds to a datetime object
 
-        # Remove any columns that are entirely empty or contain only NA values
-        df_clean = df.dropna(axis=1, how="all")
-        dataframe_clean = dataframe.dropna(axis=1, how="all")
-        # Concatenate the current batch with the previously fetched data
-        dataframe = pd.concat([df_clean, dataframe_clean])
+        df_clean = df.dropna(
+            axis=1, how="all"
+        )  # Remove any columns that are entirely empty or contain only NA values
+        dataframe_clean = dataframe.dropna(
+            axis=1, how="all"
+        )  # Remove any columns that are entirely empty or contain only NA values
+        dataframe = pd.concat(
+            [df_clean, dataframe_clean]
+        )  # Concatenate the current batch with the previously fetched data
 
-    # Set 'datetime' as the DataFrame index and order columns properly
-    dataframe = dataframe.set_index("datetime")
-    dataframe = dataframe[["open", "high", "low", "close", "volume"]]
-    # Save the combined DataFrame to CSV in the specified folder
-    dataframe = dataframe[~dataframe.index.duplicated(keep="first")]
+    dataframe = dataframe.set_index("datetime")  # Set 'datetime' as the DataFrame index
+    dataframe = dataframe[
+        ["open", "high", "low", "close", "volume"]
+    ]  # Order columns properly
+    dataframe = dataframe[
+        ~dataframe.index.duplicated(keep="first")
+    ]  # Remove duplicate indices
 
-    return dataframe
+    return dataframe  # Return the combined DataFrame
 
 
 def csvs_of_random_windows(symbol, timeframe, weeks, dates, num_csv):
-
     for i in range(num_csv):
-        # Choose left index randomly
-        left = np.random.randint(0, len(dates) - 2)  # Ensures space for right
+        left = np.random.randint(0, len(dates) - 2)  # Choose left index randomly
+        right = np.random.randint(
+            left + 1, len(dates) - 1
+        )  # Choose right index randomly (always > left)
 
-        # Choose right index randomly (always > left)
-        right = np.random.randint(left + 1, len(dates) - 1)  # Ensures left < right
+        start_date = dates[left]  # Set start date
+        end_date = dates[right]  # Set end date
 
-        start_date = dates[left]
-        end_date = dates[right]
+        csv_filename = f"{symbol[0:3]}-{timeframe}-{start_date}-{end_date}_data.csv"  # Create the filename based on symbol, timeframe, and weeks
+        csv_path = os.path.join(
+            SAVE_FOLDER, csv_filename
+        )  # Construct the full path to the CSV file in the specified SAVE_FOLDER
 
-        # Create the filename based on symbol, timeframe, and weeks
-        csv_filename = f"{symbol[0:3]}-{timeframe}-{start_date}-{end_date}_data.csv"
-
-        # Construct the full path to the CSV file in the specified SAVE_FOLDER
-        csv_path = os.path.join(SAVE_FOLDER, csv_filename)
-
-        # Check if the CSV file already exists
-        if os.path.exists(csv_path):
+        if os.path.exists(csv_path):  # Check if the CSV file already exists
             print("file already exists")
             continue
 
         print(f"🎨✨ Creating sheet #{i + 1} from {start_date} to {end_date}")
-        dataframe = get_historical_data(symbol, timeframe, weeks, start_date, end_date)
+        dataframe = get_historical_data(
+            symbol, timeframe, weeks, start_date, end_date
+        )  # Fetch historical data
 
-        # -------- FOR NOW WE ARE JUST INDEXING THE START AND END DATES TO FILTER DATE... --------
-
-        # Check if the DataFrame is empty or contains only column titles
-        if dataframe.loc[start_date:end_date].shape[0] <= 1:
+        if (
+            dataframe.loc[start_date:end_date].shape[0] <= 1
+        ):  # Check if the DataFrame is empty or contains only column titles
             print(
                 "Skipping csv because not enough data is fetched or Start/end times are too early/late."
             )
             continue
 
-        # check if the dataframe contains nan values
-        if dataframe.loc[start_date:end_date].values.any():
-            print(
-                "Warning: The time series data will contain 0s and NaNs due to having 0 trades."
-            )
-
-        # Instead of writing to the root, write to csv_path
-        dataframe.loc[start_date:end_date].to_csv(csv_path)
+        dataframe.loc[start_date:end_date].to_csv(
+            csv_path
+        )  # Write the DataFrame to CSV
     print("Done boiiiiiiiii")
 
 
 # Generate CSVs of random windows
-
 csvs_of_random_windows(
     symbol=symbol, timeframe=timeframe, weeks=weeks, dates=dates, num_csv=10
 )
