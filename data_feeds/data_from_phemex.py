@@ -9,14 +9,12 @@ import key_file as k  # Import key_file for API keys
 from math import ceil  # Import ceil for rounding up numbers
 
 # Set the trading pair and timeframe
-symbol = "ETHUSD"  # Use the format expected by Phemex (without a slash)
+symbol = "SOLUSD"  # Use the format expected by Phemex (without a slash)
 timeframe = "1d"  # 1-day candles
-weeks = 200  # Number of weeks of data to fetch
-date_range = pd.date_range(start="2017-01-02", end="2024-08-14")  # Full year of dates
+weeks = 600  # Number of weeks of data to fetch
+date_range = pd.date_range(start="2018-01-02", end="2025-08-14")  # Full year of dates
 dates = np.array(date_range)  # Convert to NumPy array for indexing
-
-dates = pd.to_datetime(dates)  # Convert dates to datetime format
-print(dates)  # Print the dates
+dates = pd.to_datetime(dates)
 # Suppress only DeprecationWarnings
 warnings.simplefilter("ignore", category=DeprecationWarning)
 
@@ -50,18 +48,6 @@ def get_historical_data(symbol, timeframe, weeks, start_date, end_date):
     It then saves the data as a CSV file in the SAVE_FOLDER.
     """
 
-    # Create the filename based on symbol, timeframe, and weeks
-    csv_filename = f"{symbol[0:3]}-{timeframe}-{start_date}-{end_date}_data.csv"
-
-    # Construct the full path to the CSV file in the specified SAVE_FOLDER
-    csv_path = os.path.join(SAVE_FOLDER, csv_filename)
-
-    # Check if the CSV file already exists
-    if os.path.exists(csv_path):
-        print("file already exists")
-        # If the file exists, read the CSV file and return the DataFrame
-        return pd.read_csv(csv_path)
-
     # Get the current UTC time
     now = datetime.datetime.utcnow()
 
@@ -91,6 +77,7 @@ def get_historical_data(symbol, timeframe, weeks, start_date, end_date):
 
         # Fetch OHLCV data with a limit of 200 bars starting from 'since_timestamp'
         data = phemex.fetch_ohlcv(symbol, timeframe, since=since_timestamp, limit=200)
+
         # Create a DataFrame from the fetched data and name the columns accordingly
         df = pd.DataFrame(
             data, columns=["datetime", "open", "high", "low", "close", "volume"]
@@ -107,31 +94,46 @@ def get_historical_data(symbol, timeframe, weeks, start_date, end_date):
     # Set 'datetime' as the DataFrame index and order columns properly
     dataframe = dataframe.set_index("datetime")
     dataframe = dataframe[["open", "high", "low", "close", "volume"]]
-    print(dataframe)  # Print the dataframe
     # Save the combined DataFrame to CSV in the specified folder
     dataframe = dataframe[~dataframe.index.duplicated(keep="first")]
-    dataframe.loc[start_date:end_date].to_csv(csv_path)
 
     return dataframe
 
 
 def csvs_of_random_windows(symbol, timeframe, weeks, dates, num_csv):
+
     for i in range(num_csv):
         # Choose left index randomly
-        left = np.random.randint(0, len(dates) - 1)  # Ensures space for right
+        left = np.random.randint(0, len(dates) - 2)  # Ensures space for right
 
         # Choose right index randomly (always > left)
-        right = np.random.randint(left + 1, len(dates))  # Ensures left < right
+        right = np.random.randint(left + 1, len(dates) - 1)  # Ensures left < right
 
         start_date = dates[left]
         end_date = dates[right]
 
+        # Create the filename based on symbol, timeframe, and weeks
+        csv_filename = f"{symbol[0:3]}-{timeframe}-{start_date}-{end_date}_data.csv"
+
+        # Construct the full path to the CSV file in the specified SAVE_FOLDER
+        csv_path = os.path.join(SAVE_FOLDER, csv_filename)
+
+        # Check if the CSV file already exists
+        if os.path.exists(csv_path):
+            print("file already exists")
+            continue
+
         print(f"🎨✨ Creating sheet #{i + 1} from {start_date} to {end_date}")
-        get_historical_data(symbol, timeframe, weeks, start_date, end_date)
+        dataframe = get_historical_data(symbol, timeframe, weeks, start_date, end_date)
+        if dataframe.empty == True:
+            print("skippin this bih")
+        else:
+            dataframe.to_csv(csv_path)
     print("Done boiiiiiiiii")
 
 
 # Generate CSVs of random windows
+
 csvs_of_random_windows(
     symbol=symbol, timeframe=timeframe, weeks=weeks, dates=dates, num_csv=10
 )

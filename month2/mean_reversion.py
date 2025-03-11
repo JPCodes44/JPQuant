@@ -2,10 +2,15 @@ import os
 from backtesting import Backtest, Strategy
 import pandas as pd
 import numpy as np
+import random
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.sandbox.stats.runs import runstest_1samp
 
 DATA_FOLDER = "/Users/jpmak/JPQuant/data"
+
+SAVE_FOLDER = "/Users/jpmak/JPQuant/month2/results"
+
+csv_path = os.path.join(SAVE_FOLDER, f"result_id_{random.randint(0, 100000)}.csv")
 
 
 class MeanReversionStrategy(Strategy):
@@ -18,35 +23,35 @@ class MeanReversionStrategy(Strategy):
         # Compute rolling minimum of the closing prices
         self.min_low = self.I(rolling_min, self.data.Close, self.lookback_period)
 
-        # **Run Statistical Tests ONCE Before Trading Starts**
-        close_series = pd.Series(self.data.Close)
+        # # **Run Statistical Tests ONCE Before Trading Starts**
+        # close_series = pd.Series(self.data.Close)
 
-        # 1️⃣ **ADF Test (Stationarity Check)**
-        adf_result = adfuller(close_series)
-        self.adf_p_value = adf_result[1]  # Store p-value
+        # # 1️⃣ **ADF Test (Stationarity Check)**
+        # adf_result = adfuller(close_series)
+        # self.adf_p_value = adf_result[1]  # Store p-value
 
-        # 2️⃣ **Runs Test (Randomness Check)**
-        returns = close_series.pct_change().dropna()
-        runs_result = runstest_1samp(returns)
-        self.runs_stat = runs_result[0]
-        self.runs_p_value = runs_result[1]
+        # # 2️⃣ **Runs Test (Randomness Check)**
+        # returns = close_series.pct_change().dropna()
+        # runs_result = runstest_1samp(returns)
+        # self.runs_stat = runs_result[0]
+        # self.runs_p_value = runs_result[1]
 
-        # ✅ **Inject the statistics into the plot using self.I()**
-        self.I(
-            lambda x: np.full_like(x, self.adf_p_value),
-            self.data.Close,
-            name=f"ADF p-value: {self.adf_p_value:.5f}",
-        )
-        self.I(
-            lambda x: np.full_like(x, self.runs_stat),
-            self.data.Close,
-            name=f"Runs Stat: {self.runs_stat:.3f}",
-        )
-        self.I(
-            lambda x: np.full_like(x, self.runs_p_value),
-            self.data.Close,
-            name=f"Runs p-value: {self.runs_p_value:.5f}",
-        )
+        # # ✅ **Inject the statistics into the plot using self.I()**
+        # self.I(
+        #     lambda x: np.full_like(x, self.adf_p_value),
+        #     self.data.Close,
+        #     name=f"ADF p-value: {self.adf_p_value:.5f}",
+        # )
+        # self.I(
+        #     lambda x: np.full_like(x, self.runs_stat),
+        #     self.data.Close,
+        #     name=f"Runs Stat: {self.runs_stat:.3f}",
+        # )
+        # self.I(
+        #     lambda x: np.full_like(x, self.runs_p_value),
+        #     self.data.Close,
+        #     name=f"Runs p-value: {self.runs_p_value:.5f}",
+        # )
 
     def next(self):
         # If today's close equals the 10-day minimum, trigger a buy
@@ -131,6 +136,10 @@ for filename in os.listdir(DATA_FOLDER):
             bt = Backtest(df, MeanReversionStrategy, cash=10_000, commission=0.002)
 
         results = bt.run()
+        print(results)
+
+        for i in range(30):
+            print(f"results.iloc[{i}] = {results.iloc[i]}")
 
         view_df.loc[len(view_df)] = [
             results.iloc[0],
@@ -167,5 +176,4 @@ for filename in os.listdir(DATA_FOLDER):
 
         bt.plot()
 
-print(view_df)
-view_df.to_csv("backtest_headers_only.csv", index=False)
+view_df.to_csv(csv_path, index=False)

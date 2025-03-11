@@ -9,9 +9,9 @@ import numpy as np
 import warnings
 from math import ceil
 
-symbol = "BTC/USD"
+symbol = "SOL/USD"
 timeframe = "1d"
-weeks = 680
+weeks = 50
 date_range = pd.date_range(start="2017-01-02", end="2024-08-14")  # Full year of dates
 dates = np.array(date_range)  # Convert to NumPy array for indexing
 
@@ -40,17 +40,7 @@ def timeframe_to_sec(timeframe):
         )
 
 
-def get_historical_data(symbol, timeframe, weeks, start_date, end_date):
-
-    # If you want to re-use the same naming logic, you can do:
-    csv_filename = f"{symbol[0:3]}-{timeframe}-{start_date}-{end_date}_data.csv"
-
-    # Construct the full path to the CSV file using os.path.join
-    csv_path = os.path.join(SAVE_FOLDER, csv_filename)
-
-    if os.path.exists(csv_path):
-        print("file alr exists")
-        return pd.read_csv(csv_path)
+def get_historical_data(symbol, timeframe, weeks, start_date, end_date, csv_path):
 
     now = datetime.datetime.utcnow()
     coinbase = ccxt.coinbase(
@@ -99,7 +89,6 @@ def csvs_of_random_windows(symbol, timeframe, weeks, dates, num_csv):
         #     print(
         #         f"{e} - Either your window_length is too small or your buffer is too big, fix pls"
         #     )
-
         # Choose left index randomly
         left = np.random.randint(0, len(dates) - 1)  # Ensures space for right
 
@@ -109,8 +98,21 @@ def csvs_of_random_windows(symbol, timeframe, weeks, dates, num_csv):
         start_date = dates[left]
         end_date = dates[right]
 
+        # If you want to re-use the same naming logic, you can do:
+        csv_filename = f"{symbol[0:3]}-{timeframe}-{start_date}-{end_date}_data.csv"
+        # The expression symbol[0:3] is slicing the string 'symbol' to get the first three characters.
+        # This is useful if 'symbol' contains a longer string, but you only want to use the first three characters
+        # (e.g., if 'symbol' is 'BTCUSD', symbol[0:3] would result in 'BTC').
+
+        # Construct the full path to the CSV file using os.path.join
+        csv_path = os.path.join(SAVE_FOLDER, csv_filename)
+
+        if os.path.exists(csv_path):
+            print("file alr exists")
+            return pd.read_csv(csv_path)
+
         print(f"🎨✨ Creating sheet #{i + 1} from {start_date} to {end_date}")
-        get_historical_data(symbol, timeframe, weeks, start_date, end_date)
+        get_historical_data(symbol, timeframe, weeks, start_date, end_date, csv_path)
     print("Done boiiiiiiiii")
 
 
