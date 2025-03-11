@@ -11,8 +11,8 @@ from math import ceil  # Import ceil for rounding up numbers
 # Set the trading pair and timeframe
 symbol = "SOLUSD"  # Use the format expected by Phemex (without a slash)
 timeframe = "1d"  # 1-day candles
-weeks = 600  # Number of weeks of data to fetch
-date_range = pd.date_range(start="2018-01-02", end="2025-08-14")  # Full year of dates
+weeks = 680  # Number of weeks of data to fetch
+date_range = pd.date_range(start="2017-01-02", end="2020-08-14")  # Full year of dates
 dates = np.array(date_range)  # Convert to NumPy array for indexing
 dates = pd.to_datetime(dates)
 # Suppress only DeprecationWarnings
@@ -42,6 +42,7 @@ def timeframe_to_sec(timeframe):
         )
 
 
+# This will fetch data from the total weeks and not the time range (will have to fix later)
 def get_historical_data(symbol, timeframe, weeks, start_date, end_date):
     """
     Fetches historical OHLCV data from Phemex testnet for the given symbol and timeframe.
@@ -125,10 +126,24 @@ def csvs_of_random_windows(symbol, timeframe, weeks, dates, num_csv):
 
         print(f"🎨✨ Creating sheet #{i + 1} from {start_date} to {end_date}")
         dataframe = get_historical_data(symbol, timeframe, weeks, start_date, end_date)
-        if dataframe.empty == True:
-            print("skippin this bih")
-        else:
-            dataframe.to_csv(csv_path)
+
+        # -------- FOR NOW WE ARE JUST INDEXING THE START AND END DATES TO FILTER DATE... --------
+
+        # Check if the DataFrame is empty or contains only column titles
+        if dataframe.loc[start_date:end_date].shape[0] <= 1:
+            print(
+                "Skipping csv because not enough data is fetched or Start/end times are too early/late."
+            )
+            continue
+
+        # check if the dataframe contains nan values
+        if dataframe.loc[start_date:end_date].values.any():
+            print(
+                "Warning: The time series data will contain 0s and NaNs due to having 0 trades."
+            )
+
+        # Instead of writing to the root, write to csv_path
+        dataframe.loc[start_date:end_date].to_csv(csv_path)
     print("Done boiiiiiiiii")
 
 

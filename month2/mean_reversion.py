@@ -2,6 +2,7 @@ import os
 from backtesting import Backtest, Strategy
 import pandas as pd
 import numpy as np
+import warnings
 import random
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.sandbox.stats.runs import runstest_1samp
@@ -10,7 +11,15 @@ DATA_FOLDER = "/Users/jpmak/JPQuant/data"
 
 SAVE_FOLDER = "/Users/jpmak/JPQuant/month2/results"
 
-csv_path = os.path.join(SAVE_FOLDER, f"result_id_{random.randint(0, 100000)}.csv")
+id = random.randint(0, 100000)
+
+csv_path = os.path.join(SAVE_FOLDER, f"result_id_{id}.csv")
+
+# Suppress only DeprecationWarnings
+warnings.simplefilter("ignore", category=DeprecationWarning)
+
+# Suppress only FutureWarnings
+warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
 class MeanReversionStrategy(Strategy):
@@ -136,11 +145,6 @@ for filename in os.listdir(DATA_FOLDER):
             bt = Backtest(df, MeanReversionStrategy, cash=10_000, commission=0.002)
 
         results = bt.run()
-        print(results)
-
-        for i in range(30):
-            print(f"results.iloc[{i}] = {results.iloc[i]}")
-
         view_df.loc[len(view_df)] = [
             results.iloc[0],
             results.iloc[1],
@@ -174,6 +178,16 @@ for filename in os.listdir(DATA_FOLDER):
             results.iloc[29],
         ]
 
+        # check if the dataframe contains nan values
+        if results.isna().any():
+            print(
+                "Warning: The time series data will contain 0s and NaNs due to having 0 trades. \nConsider making the timeframe longer for more trades."
+            )
         bt.plot()
 
-view_df.to_csv(csv_path, index=False)
+if not os.listdir(DATA_FOLDER):
+    print(f"No csvs in {DATA_FOLDER}.")
+    pass
+else:
+    print(f"Printed to result_id_{id}.csv")
+    view_df.to_csv(csv_path, index=False)

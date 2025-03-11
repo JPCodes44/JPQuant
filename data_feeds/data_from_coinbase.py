@@ -12,7 +12,7 @@ from math import ceil
 symbol = "SOL/USD"
 timeframe = "1d"
 weeks = 50
-date_range = pd.date_range(start="2017-01-02", end="2024-08-14")  # Full year of dates
+date_range = pd.date_range(start="2021-01-02", end="2024-08-14")  # Full year of dates
 dates = np.array(date_range)  # Convert to NumPy array for indexing
 
 # ✅ Suppress only DeprecationWarnings
@@ -69,9 +69,6 @@ def get_historical_data(symbol, timeframe, weeks, start_date, end_date, csv_path
     dataframe = dataframe.set_index("datetime")
     dataframe = dataframe[["open", "high", "low", "close", "volume"]]
 
-    # Instead of writing to the root, write to csv_path
-    dataframe.loc[start_date:end_date].to_csv(csv_path)
-
     return dataframe
 
 
@@ -112,7 +109,20 @@ def csvs_of_random_windows(symbol, timeframe, weeks, dates, num_csv):
             return pd.read_csv(csv_path)
 
         print(f"🎨✨ Creating sheet #{i + 1} from {start_date} to {end_date}")
-        get_historical_data(symbol, timeframe, weeks, start_date, end_date, csv_path)
+        dataframe = get_historical_data(
+            symbol, timeframe, weeks, start_date, end_date, csv_path
+        )
+
+        # Check if the DataFrame is empty or contains only column titles
+        if dataframe.loc[start_date:end_date].shape[0] <= 1:
+            print(
+                "Skipping csv because not enough data is fetched or Start/end times are too early/late."
+            )
+            continue
+
+        # Instead of writing to the root, write to csv_path
+        dataframe.loc[start_date:end_date].to_csv(csv_path)
+
     print("Done boiiiiiiiii")
 
 
