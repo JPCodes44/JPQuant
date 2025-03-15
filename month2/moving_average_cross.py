@@ -1,79 +1,68 @@
-from backtesting import Backtest, Strategy
-from backtesting.lib import crossover
-import pandas as pd
-import numpy as np
-import yfinance as yf
-import talib as ta
-from datetime import datetime, timedelta
-import matplotlib.pyplot as plt
-from run_it_back import run_backtest
+from backtesting import (
+    Backtest,
+    Strategy,
+)  # Import Backtest and Strategy classes from backtesting module
+from backtesting.lib import (
+    crossover,
+)  # Import crossover function from backtesting.lib module
+from backtesting.test import (
+    SMA,
+    GOOG,
+)  # Import SMA function and GOOG sample data from backtesting.test module
+
+import numpy as np  # Import numpy library for numerical operations
+import pandas as pd  # Import pandas library for data manipulation
+import talib as ta  # Import talib library for technical analysis functions
+from run_it_back import (
+    run_backtest,
+)  # Import run_backtest function from run_it_back module
+
+# Your data input will replace GOOG
+# It should have columns: 'Open', 'High', 'Low', 'Close', 'Volume'
 
 
-class ModifiedMACrossover(Strategy):
-    # Strategy parameters
-    short_period = 20  # short-term moving average period
-    long_period = 50  # long-term moving average period
-    stop_loss_pct = 0.03  # stop-loss: 3% below entry price
-    min_hold = 10  # minimum holding period (in bars/days)
+class SmaCross(
+    Strategy
+):  # Define a new strategy class SmaCross inheriting from Strategy
+    n1 = 10  # Short-term SMA period
+    n2 = 200  # Long-term SMA period
 
-    def init(self):
-        # Pre-compute the moving averages on the Close prices.
-        self.sma_short = self.I(ta.SMA, self.data.Close, timeperiod=self.short_period)
-        self.sma_long = self.I(ta.SMA, self.data.Close, timeperiod=self.long_period)
-        # Record the entry bar index for the current position.
-        self.entry_bar = None
-        self.bar_index = 0
+    def init(self):  # Initialize the strategy
+        # Precompute the two SMAs using backtesting.py's built-in SMA function.
+        # self.I() registers an indicator function so it updates with every new bar.
+        self.sma1 = self.I(ta.EMA, self.data.Close, self.n1)  # Compute short-term EMA
+        self.sma2 = self.I(ta.EMA, self.data.Close, self.n2)  # Compute long-term EMA
 
-    def next(self):
-        # Get current open and close prices.
-        open_price = self.data.Open[-1]
-        close_price = self.data.Close[-1]
+    def next(self):  # Define the logic to be executed on each new bar
+        # If the short SMA is above the long SMA and we are not already in a position, buy.
+        if (
+            self.sma1[-1] > self.sma2[-1]
+        ):  # Check if short-term EMA is above long-term EMA
+            if not self.position:  # Check if there is no open position
+                if (self.data.Close[-1] > self.sma1[-1]) and (
+                    self.data.Close[-1] > self.sma2[-1]
+                ):  # Additional conditions to buy
+                    self.buy()  # Execute buy order
+                    self.stop_loss = (
+                        self.data.Close[-1] * 0.9
+                    )  # Set stop loss at 90% of the current close price
 
-        self.bar_index += 1
+        # If the short SMA is below the long SMA and we are in a position, exit.
+        elif (
+            self.sma1[-1] < self.sma2[-1]
+        ):  # Check if short-term EMA is below long-term EMA
+            if self.position:  # Check if there is an open position
+                if (self.data.Close[-1] > self.sma1[-1]) and (
+                    self.data.Close[-1] > self.sma2[-1]
+                ):  # Additional conditions to close position
+                    self.position.close()  # Close the position
 
-        # --- Step 1: Determine candle characteristics ---
-        # Identify a doji/narrow-range candle: if the candle's real body is less than 0.3% of the close.
-        doji = abs(close_price - open_price) < 0.003 * close_price
-
-        # --- Step 2: Evaluate Bullish Entry Conditions ---
-        # Check for a golden cross (short MA crossing above long MA).
-        if crossover(self.sma_short, self.sma_long):
-            # Additional entry criteria:
-            # a) The candle should not be a doji.
-            # b) The candle must be bullish (white: close > open).
-            # c) The close must be above both moving averages.
-            if (
-                not doji
-                and close_price > open_price
-                and close_price > self.sma_short[-1]
-                and close_price > self.sma_long[-1]
-            ):
-                # If no position is open, enter a long position.
-                if not self.position:
-                    self.entry_bar = self.
-                    # Set the stop loss as a fixed percentage below the entry.
-                    stop_loss_level = close_price * (1 - self.stop_loss_pct)
-                    self.buy(sl=stop_loss_level)
-
-        # --- Step 3: Evaluate Bearish Exit Conditions ---
-        # Only check exit conditions if we currently hold a long position.
-        if self.position:
-            holding_period = (
-                len(self.data) - 1 - self.entry_bar if self.entry_bar is not None else 0
-            )
-
-            # The stop-loss exit is managed automatically by backtesting.py based on the 'sl' parameter.
-            # However, we can also check for a bearish exit condition after the minimum holding period.
-            if holding_period >= self.min_hold:
-                # Check for a bearish crossover: short MA crossing below long MA.
-                # Also, ensure that the current close is below both MAs.
-                if crossover(self.sma_long, self.sma_short) and (
-                    close_price < self.sma_short[-1] and close_price < self.sma_long[-1]
-                ):
-                    self.position.close()
+                elif (
+                    self.data.Close[-1] <= self.stop_loss
+                ):  # Check if the current close price is below or equal to stop loss
+                    self.position.close()  # Close the position
 
 
-# ======================================================================
-
-
-run_backtest(ModifiedMACrossover)
+run_backtest(SmaCross)  # Run the backtest with the SmaCross strategy
+# To plot the results (not available in the current environment)
+# bt.plot()  # Uncomment this line to plot the results

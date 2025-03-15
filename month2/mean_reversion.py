@@ -1,7 +1,7 @@
 import os
 from backtesting import Backtest, Strategy
 from backtesting.lib import crossover
-from backtesting.test import SMA, RSI
+from backtesting.test import SMA
 import pandas as pd
 import numpy as np
 import warnings
