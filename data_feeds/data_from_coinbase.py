@@ -22,10 +22,10 @@ symbol_list = [
 ]
 
 timeframe = "1d"
-weeks = 700
+weeks = 800
 
 # 1d timeframe
-date_range = pd.date_range(start="2020-03-06", end="2025-03-07")
+date_range = pd.date_range(start="2017-03-06", end="2025-03-07")
 
 # for 1m timeframe
 # date_range = pd.date_range(
