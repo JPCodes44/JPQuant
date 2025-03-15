@@ -1,17 +1,7 @@
 from backtesting import (
-    Backtest,
     Strategy,
 )  # Import Backtest and Strategy classes from backtesting module
-from backtesting.lib import (
-    crossover,
-)  # Import crossover function from backtesting.lib module
-from backtesting.test import (
-    SMA,
-    GOOG,
-)  # Import SMA function and GOOG sample data from backtesting.test module
 
-import numpy as np  # Import numpy library for numerical operations
-import pandas as pd  # Import pandas library for data manipulation
 import talib as ta  # Import talib library for technical analysis functions
 from run_it_back import (
     run_backtest,
@@ -24,8 +14,8 @@ from run_it_back import (
 class SmaCross(
     Strategy
 ):  # Define a new strategy class SmaCross inheriting from Strategy
-    n1 = 10  # Short-term SMA period
-    n2 = 200  # Long-term SMA period
+    n1 = 20  # Short-term SMA period
+    n2 = 50  # Long-term SMA period
 
     def init(self):  # Initialize the strategy
         # Precompute the two SMAs using backtesting.py's built-in SMA function.
