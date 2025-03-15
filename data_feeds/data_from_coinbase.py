@@ -8,10 +8,18 @@ import numpy as np
 import warnings
 from math import ceil
 
-symbol = "BTC/USD"
-timeframe = "1d"
-weeks = 680
-date_range = pd.date_range(start="2015-01-02", end="2025-02-14")  # Full year of dates
+symbol = "ETH/USD"
+timeframe = "1m"
+weeks = 1
+
+# 1d timeframe
+# date_range = pd.date_range(start="2025-03-06", end="2025-03-07", freq="T")
+
+# for 1m timeframe
+date_range = pd.date_range(
+    start="2025-03-06 09:10:00", end="2025-03-07 16:00:00", freq="T"
+)
+
 dates = np.array(date_range)  # Convert to NumPy array for indexing
 
 # ✅ Suppress only DeprecationWarnings

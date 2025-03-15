@@ -95,6 +95,7 @@ def run_backtest(Strategy):
                 bt = Backtest(df, Strategy, cash=10_000, commission=0.002)
 
             results = bt.run()
+            # print(results)
             view_df.loc[len(view_df)] = [
                 results.iloc[0],
                 results.iloc[1],
@@ -131,7 +132,7 @@ def run_backtest(Strategy):
             # check if the dataframe contains nan values
             if results.isna().any():
                 print(
-                    "Warning: The time series data will contain 0s and NaNs due to having 0 trades. \nConsider making the timeframe longer for more trades."
+                    "Warning: The time series data will contain 0s and NaNs due to having 0 trades (maybe other shit tho). \nConsider making the timeframe longer for more trades."
                 )
             bt.plot()
 

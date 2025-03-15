@@ -5,67 +5,51 @@ from run_it_back import run_backtest
 
 """
 Strategy Explanation:
-This strategy is based on the crossover of two Exponential Moving Averages (EMAs) and the Relative Strength Index (RSI). 
-
-1. EMAs:
-    - Short EMA: Calculated over a period of 9 days.
-    - Long EMA: Calculated over a period of 26 days.
-    - A buy signal is generated when the short EMA crosses above the long EMA.
-    - A sell signal is generated when the short EMA crosses below the long EMA.
-
-2. RSI:
-    - RSI is calculated over a period of 14 days.
-    - A buy signal is confirmed if the RSI is above 55.
-    - A sell signal is confirmed if the RSI is below 45.
-
-The strategy buys when both the EMA crossover and RSI conditions are met, and sells when either the EMA crossover or RSI conditions are met.
+- This strategy is purely a template to help you code your own backtest logic in `backtesting.py`.
+- It demonstrates:
+  1) How to set strategy parameters
+  2) How to declare and initialize indicators/variables in `init()`
+  3) How to open/close positions in `next()`
+- Replace the placeholder logic with your real trading signals.
 """
 
 # ======================================================================
 
 
-class EMACrossoverRSIStrategy(Strategy):
+class PutStrategyNameHere(Strategy):
+    # Example parameter(s)
+    lookback_days = 10
 
-    # --- PARAMS GO HERE ----
-    short_ema_period = 9  # Set the short EMA period to 9
-    long_ema_period = 26  # Set the long EMA period to 26
-    rsi_period = 14  # Set the RSI period to 14
-    rsi_entry_threshold = 55  # Set the RSI entry threshold to 55
-    rsi_exit_threshold = 45  # Set the RSI exit threshold to 45
-
-    # --- VARIABLES CONTAINING INDICATORS AND OTHER SETUP SHIT GOES HERE ----
     def init(self):
-        # Initialize short EMA indicator using the short EMA period and closing prices
-        self.short_ema = self.I(
-            lambda x: ta.EMA(x, timeperiod=self.short_ema_period), self.data.Close
-        )
-        # Initialize long EMA indicator using the long EMA period and closing prices
-        self.long_ema = self.I(
-            lambda x: ta.EMA(x, timeperiod=self.long_ema_period), self.data.Close
-        )
-        # Initialize RSI indicator using the RSI period and closing prices
-        self.rsi = self.I(
-            lambda x: ta.RSI(x, timeperiod=self.rsi_period), self.data.Close
-        )
+        """
+        Runs once at the start of the backtest.
+        Typically used to pre-compute indicators or store rolling calculations.
+        """
+        # For demonstration, let's do a simple rolling average
+        close = self.data.Close
+        self.sma = self.I(ta.SMA, close, self.lookback_days)
 
-    # --- ACTUAL LOGIC GOES HERE ----
+        # Just a placeholder variable for illustration:
+        self.my_state = 0
+
     def next(self):
-        # Check for EMA crossover and RSI entry condition
-        if (
-            crossover(self.short_ema, self.long_ema)
-            and self.rsi[-1] > self.rsi_entry_threshold
-        ):
-            self.buy()  # Execute buy order
-
-        # Check for EMA crossover or RSI exit condition
-        elif (
-            crossover(self.long_ema, self.short_ema)
-            or self.rsi[-1] < self.rsi_exit_threshold
-        ):
-            self.position.close()  # Close the position
+        """
+        Runs for each bar/candle.
+        Decide whether to buy/sell/hold based on your signals.
+        """
+        # Example logic: if last close < rolling SMA => close any open position
+        if self.data.Close[-1] < self.sma[-1]:
+            self.position.close()
+            self.my_state = 0
+        else:
+            # If no position, open one (or do partial if you like)
+            if not self.position:
+                self.buy(size=1)
+                self.my_state = 1
 
 
 # ======================================================================
 
-
-run_backtest(EMACrossoverRSIStrategy)
+# Always remember to pass YOUR strategy class to run_backtest, not just `Strategy`.
+if __name__ == "__main__":
+    run_backtest(PutStrategyNameHere)

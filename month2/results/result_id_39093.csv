@@ -1,0 +1,11 @@
+Start,End,Duration,Exposure Time [%],Equity Final [$],Equity Peak [$],Commissions [$],Return [%],Buy & Hold Return [%],Return (Ann.) [%],Volatility (Ann.) [%],CAGR [%],Sharpe Ratio,Sortino Ratio,Calmar Ratio,Max. Drawdown [%],Avg. Drawdown [%],Max. Drawdown Duration,Avg. Drawdown Duration,# Trades,Win Rate [%],Best Trade [%],Worst Trade [%],Avg. Trade [%],Max. Trade Duration,Avg. Trade Duration,Profit Factor,Expectancy [%],SQN,Kelly Criterion
+2021-12-12,2024-12-27,1111 days,0.0,10000.0,10000.0,0.0,27.880932348274424,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,CupHandleStrategy
+2025-01-21,2025-01-27,6 days,0.0,10000.0,10000.0,0.0,-4.376767430888015,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,CupHandleStrategy
+2020-02-29,2021-02-15,352 days,0.0,10000.0,10000.0,0.0,847.2109857355757,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,CupHandleStrategy
+2020-04-21,2021-06-22,427 days,0.0,10000.0,10000.0,0.0,671.0732287013892,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,CupHandleStrategy
+2024-08-25,2024-10-28,64 days,0.0,10000.0,10000.0,0.0,3.970952355866051,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,CupHandleStrategy
+2020-06-26,2020-07-07,11 days,0.0,10000.0,10000.0,0.0,4.32792887029289,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,CupHandleStrategy
+2019-03-17,2021-05-25,800 days,0.0,10000.0,10000.0,0.0,1579.1069767441859,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,CupHandleStrategy
+2023-05-17,2025-01-01,595 days,0.0,10000.0,10000.0,0.0,75.5536243416713,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,CupHandleStrategy
+2023-01-10,2023-03-20,69 days,0.0,10000.0,10000.0,0.0,8.348075246044598,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,CupHandleStrategy
+2020-12-18,2023-12-31,1108 days,0.0,10000.0,10000.0,0.0,32.538668030167464,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,CupHandleStrategy
