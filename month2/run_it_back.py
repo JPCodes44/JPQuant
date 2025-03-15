@@ -15,13 +15,13 @@ def run_backtest(Strategy):
 
     csv_path = os.path.join(SAVE_FOLDER, f"result_id_{id}.csv")
 
-    # Suppress only DeprecationWarnings
+    # # Suppress only DeprecationWarnings
     warnings.simplefilter("ignore", category=DeprecationWarning)
 
-    # Suppress only FutureWarnings
+    # # Suppress only FutureWarnings
     warnings.simplefilter(action="ignore", category=FutureWarning)
 
-    # Suppress only UserWarning
+    # # Suppress only UserWarning
     warnings.simplefilter(action="ignore", category=UserWarning)
 
     # ✅ Create an empty DataFrame with column names but no rows
@@ -92,8 +92,7 @@ def run_backtest(Strategy):
                 ]  # Rename columns
 
                 # Backtest
-                bt = Backtest(df, Strategy, cash=10_000, commission=0.002)
-
+                bt = Backtest(df, Strategy, cash=10000, commission=0.002)
             results = bt.run()
             view_df.loc[len(view_df)] = [
                 results.iloc[0],
@@ -131,7 +130,7 @@ def run_backtest(Strategy):
             # check if the dataframe contains nan values
             if results.isna().any():
                 print(
-                    "Warning: The time series data will contain 0s and NaNs due to having 0 trades. \nConsider making the timeframe longer for more trades."
+                    "Warning: The time series data will contain 0s and NaNs due to having 0 trades (maybe other shit tho). \nConsider making the timeframe longer for more trades."
                 )
             bt.plot()
 

@@ -8,10 +8,30 @@ import numpy as np
 import warnings
 from math import ceil
 
-symbol = "BTC/USD"
+symbol_list = [
+    "BTC/USD",  # Bitcoin: Coinbase’s original asset since 2012
+    "ETH/USD",  # Ethereum: Added in 2016
+    "LTC/USD",  # Litecoin: One of the earliest altcoins, available since around 2013
+    "SOL/USD",
+    "DOGE/USD",
+    # "BCH/USD",  # Bitcoin Cash: Introduced after the Bitcoin fork in 2017
+    # "XLM/USD",  # Stellar: An early altcoin from around 2014-2015
+    # "ADA/USD",  # Cardano: One of the older altcoins, listed a few years back
+    # "EOS/USD",  # EOS: Among the earlier tokens in the ICO boom, on Coinbase since around 2018
+    # "LINK/USD",  # Chainlink: Although a bit later than the others, it’s one of the longer–standing altcoins among the newer generation
+]
+
 timeframe = "1d"
-weeks = 680
-date_range = pd.date_range(start="2015-01-02", end="2025-02-14")  # Full year of dates
+weeks = 700
+
+# 1d timeframe
+date_range = pd.date_range(start="2020-03-06", end="2025-03-07")
+
+# for 1m timeframe
+# date_range = pd.date_range(
+#     start="2024-12-12 09:10:00", end="2025-03-14 16:00:00", freq="min"
+# )
+
 dates = np.array(date_range)  # Convert to NumPy array for indexing
 
 # ✅ Suppress only DeprecationWarnings
@@ -71,7 +91,7 @@ def get_historical_data(symbol, timeframe, weeks):
     return dataframe
 
 
-def csvs_of_random_windows(symbol, timeframe, weeks, dates, num_csv):
+def csvs_of_random_windows(timeframe, weeks, dates, num_csv):
     for i in range(num_csv):
         # try:
         #     # ✅ Choose left index randomly
@@ -86,6 +106,8 @@ def csvs_of_random_windows(symbol, timeframe, weeks, dates, num_csv):
         #         f"{e} - Either your window_length is too small or your buffer is too big, fix pls"
         #     )
         # Choose left index randomly
+
+        symbol = symbol_list[np.random.randint(0, len(symbol_list) - 1)]
         left = np.random.randint(0, len(dates) - 1)  # Ensures space for right
 
         # Choose right index randomly (always > left)
@@ -126,6 +148,4 @@ def csvs_of_random_windows(symbol, timeframe, weeks, dates, num_csv):
 # Manual fetch
 # get_historical_data(symbol, timeframe, weeks, "2025-03-09", "2016-01-02")
 
-csvs_of_random_windows(
-    symbol=symbol, timeframe=timeframe, weeks=weeks, dates=dates, num_csv=10
-)
+csvs_of_random_windows(timeframe=timeframe, weeks=weeks, dates=dates, num_csv=20)
