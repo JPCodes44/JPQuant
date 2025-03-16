@@ -21,8 +21,8 @@ symbol_list = [
     # "LINK/USD",  # Chainlink: Although a bit later than the others, it’s one of the longer–standing altcoins among the newer generation
 ]
 
-timeframe = "1d"
-weeks = 800
+timeframe = "1h"
+weeks = 50
 
 # 1d timeframe
 date_range = pd.date_range(start="2017-03-06", end="2025-03-07")
@@ -108,10 +108,18 @@ def csvs_of_random_windows(timeframe, weeks, dates, num_csv):
         # Choose left index randomly
 
         symbol = symbol_list[np.random.randint(0, len(symbol_list) - 1)]
-        left = np.random.randint(0, len(dates) - 1)  # Ensures space for right
+        # Define a maximum window length (e.g., 50 days)
+        max_window = 50
 
-        # Choose right index randomly (always > left)
-        right = np.random.randint(left + 1, len(dates))  # Ensures left < right
+        left = np.random.randint(0, len(dates) - 1)
+
+        # Calculate the maximum possible right index, ensuring we don't exceed the date range
+        max_possible_right = min(left + max_window, len(dates) - 1)
+
+        # Choose right index randomly (ensuring it's always > left)
+        right = np.random.randint(
+            left + 1, max_possible_right + 1
+        )  # +1 because upper bound is exclusive
 
         start_date = dates[left]
         end_date = dates[right]
