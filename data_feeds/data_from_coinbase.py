@@ -21,8 +21,8 @@ symbol_list = [
     # "LINK/USD",  # Chainlink: Although a bit later than the others, it’s one of the longer–standing altcoins among the newer generation
 ]
 
-timeframe = "1h"
-weeks = 50
+timeframe = "1d"
+weeks = 680
 
 # 1d timeframe
 date_range = pd.date_range(start="2017-03-06", end="2025-03-07")
@@ -60,96 +60,136 @@ def timeframe_to_sec(timeframe):
 
 
 def get_historical_data(symbol, timeframe, weeks):
-
+    # Get the current UTC time
     now = datetime.datetime.utcnow()
+
+    # Initialize the Coinbase exchange with API keys and rate limiting
     coinbase = ccxt.coinbase(
         {"apikey": c.key, "secret": c.secret, "enableRateLimit": True}
     )
 
-    granularity = timeframe_to_sec(timeframe)  # Convert timeframe to seconds
+    # Convert the timeframe to seconds
+    granularity = timeframe_to_sec(timeframe)
 
+    # Calculate the total time in seconds for the given number of weeks
     total_time = weeks * 7 * 24 * 60 * 60
+
+    # Calculate the number of API calls needed to fetch the data
     run_times = ceil(total_time / (granularity * 200))
 
+    # Initialize an empty DataFrame to store the data
     dataframe = pd.DataFrame()
 
+    # Loop through the number of API calls needed
     for i in range(run_times):
+        # Calculate the timestamp for the current batch of data
+        # 'now' is assumed to be the current datetime
+        # 'granularity' is the time interval in seconds
+        # 'i' is the current batch index
 
+        # Calculate the datetime for the current batch by subtracting a time delta from 'now'
+        # The time delta is calculated as 'granularity * 200 * (i + 1)' seconds
         since = now - datetime.timedelta(seconds=granularity * 200 * (i + 1))
+
+        # Convert the 'since' datetime to a POSIX timestamp (seconds since epoch)
+        # Then convert the timestamp to milliseconds by multiplying by 1000
         since_timestamp = int(since.timestamp()) * 1000  # Convert to milliseconds
 
+        # Fetch the OHLCV data from Coinbase
         data = coinbase.fetch_ohlcv(symbol, timeframe, since=since_timestamp, limit=200)
+
+        # Convert the data to a DataFrame
         df = pd.DataFrame(
             data, columns=["datetime", "open", "high", "low", "close", "volume"]
         )
+
+        # Convert the datetime column to a pandas datetime object
         df["datetime"] = pd.to_datetime(df["datetime"], unit="ms")
+
+        # Concatenate the new data with the existing DataFrame
         dataframe = pd.concat([df, dataframe])
 
+    # Set the datetime column as the index
     dataframe = dataframe.set_index("datetime")
+
+    # Reorder the columns
     dataframe = dataframe[["open", "high", "low", "close", "volume"]]
 
     return dataframe
 
 
+def get_window_size(weeks, timeframe):
+    # Define the maximum window length in days
+    max_window = weeks * 7
+
+    # Define the minimum window length based on the timeframe
+    # lowered percentage because as the weeks increase, the spacing between the lines increase as well so we change the coefficient accordingly
+    if "m" in timeframe:
+        min_window = max_window * 0.2
+    elif "h" in timeframe:
+        min_window = max_window * 0.4
+    elif "d" in timeframe:
+        min_window = max_window * 0.5
+
+    # Print the maximum and minimum window lengths for debugging
+    print(max_window)
+    print(min_window)
+
+    # Select a random left index within the date range
+    left = np.random.randint(0, len(dates) - 1)
+
+    # Ensure that the right index does not exceed the date range
+    min_possible_right = min(left + min_window, len(dates) - 1)
+    max_possible_right = min(left + max_window, len(dates) - 1)
+
+    # Select a random right index within the possible range
+    if min_possible_right >= max_possible_right:
+        right = max_possible_right
+    else:
+        right = np.random.randint(min_possible_right, max_possible_right + 1)
+
+    return left, right
+
+
 def csvs_of_random_windows(timeframe, weeks, dates, num_csv):
     for i in range(num_csv):
-        # try:
-        #     # ✅ Choose left index randomly
-        #     left = np.random.randint(0, len(dates) - 1)  # Ensures space for right
-
-        #     # ✅ Choose right index randomly (always > left)
-        #     right = np.random.randint(left + 1, len(dates))  # Ensures left < right
-
-        #     get_historical_data(symbol, timeframe, weeks, left, right)
-        # except Exception as e:
-        #     print(
-        #         f"{e} - Either your window_length is too small or your buffer is too big, fix pls"
-        #     )
-        # Choose left index randomly
-
+        # Select a random symbol from the symbol list
         symbol = symbol_list[np.random.randint(0, len(symbol_list) - 1)]
-        # Define a maximum window length (e.g., 50 days)
-        max_window = 50
 
-        left = np.random.randint(0, len(dates) - 1)
+        left, right = get_window_size(timeframe=timeframe, weeks=weeks)
 
-        # Calculate the maximum possible right index, ensuring we don't exceed the date range
-        max_possible_right = min(left + max_window, len(dates) - 1)
-
-        # Choose right index randomly (ensuring it's always > left)
-        right = np.random.randint(
-            left + 1, max_possible_right + 1
-        )  # +1 because upper bound is exclusive
-
+        # Get the start and end dates based on the selected indices
         start_date = dates[left]
         end_date = dates[right]
 
-        # If you want to re-use the same naming logic, you can do:
+        # Create a filename for the CSV file
         csv_filename = f"{symbol[0:3]}-{timeframe}-{start_date}-{end_date}_data.csv"
-        # The expression symbol[0:3] is slicing the string 'symbol' to get the first three characters.
-        # This is useful if 'symbol' contains a longer string, but you only want to use the first three characters
-        # (e.g., if 'symbol' is 'BTCUSD', symbol[0:3] would result in 'BTC').
 
-        # Construct the full path to the CSV file using os.path.join
+        # Construct the full path to the CSV file
         csv_path = os.path.join(SAVE_FOLDER, csv_filename)
 
+        # Check if the CSV file already exists
         if os.path.exists(csv_path):
             print("file alr exists")
             return pd.read_csv(csv_path)
 
+        # Print a message indicating the creation of a new CSV file
         print(f"🎨✨ Creating sheet #{i + 1} from {start_date} to {end_date}")
+
+        # Fetch the historical data for the selected symbol and timeframe
         dataframe = get_historical_data(symbol, timeframe, weeks)
 
-        # Check if the DataFrame is empty or contains only column titles
+        # Check if the DataFrame contains enough data
         if dataframe.loc[start_date:end_date].shape[0] <= 1:
             print(
                 "Skipping csv because not enough data is fetched or Start/end times are too early/late."
             )
             continue
 
-        # Instead of writing to the root, write to csv_path
+        # Save the DataFrame to a CSV file
         dataframe.loc[start_date:end_date].to_csv(csv_path)
 
+    # Print a message indicating the completion of the process
     print("Done boiiiiiiiii")
 
 
