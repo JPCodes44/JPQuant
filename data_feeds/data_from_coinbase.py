@@ -21,8 +21,8 @@ symbol_list = [
     # "LINK/USD",  # Chainlink: Although a bit later than the others, it’s one of the longer–standing altcoins among the newer generation
 ]
 
-timeframe = "1d"
-weeks = 680
+timeframe = "2h"
+weeks = 100
 
 # 1d timeframe
 date_range = pd.date_range(start="2017-03-06", end="2025-03-07")
@@ -127,7 +127,7 @@ def get_window_size(weeks, timeframe):
     if "m" in timeframe:
         min_window = max_window * 0.2
     elif "h" in timeframe:
-        min_window = max_window * 0.4
+        min_window = max_window * 0.35
     elif "d" in timeframe:
         min_window = max_window * 0.5
 
