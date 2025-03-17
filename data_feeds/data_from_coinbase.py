@@ -14,18 +14,18 @@ symbol_list = [
     "LTC/USD",  # Litecoin: One of the earliest altcoins, available since around 2013
     "SOL/USD",
     "DOGE/USD",
-    # "BCH/USD",  # Bitcoin Cash: Introduced after the Bitcoin fork in 2017
-    # "XLM/USD",  # Stellar: An early altcoin from around 2014-2015
-    # "ADA/USD",  # Cardano: One of the older altcoins, listed a few years back
-    # "EOS/USD",  # EOS: Among the earlier tokens in the ICO boom, on Coinbase since around 2018
-    # "LINK/USD",  # Chainlink: Although a bit later than the others, it’s one of the longer–standing altcoins among the newer generation
+    "BCH/USD",  # Bitcoin Cash: Introduced after the Bitcoin fork in 2017
+    "XLM/USD",  # Stellar: An early altcoin from around 2014-2015
+    "ADA/USD",  # Cardano: One of the older altcoins, listed a few years back
+    "EOS/USD",  # EOS: Among the earlier tokens in the ICO boom, on Coinbase since around 2018
+    "LINK/USD",  # Chainlink: Although a bit later than the others, it’s one of the longer–standing altcoins among the newer generation
 ]
 
-timeframe = "2h"
-weeks = 100
+timeframe = "1d"
+weeks = 200
 
 # 1d timeframe
-date_range = pd.date_range(start="2017-03-06", end="2025-03-07")
+date_range = pd.date_range(start="2015-03-06", end="2025-03-07")
 
 # for 1m timeframe
 # date_range = pd.date_range(
@@ -118,35 +118,41 @@ def get_historical_data(symbol, timeframe, weeks):
     return dataframe
 
 
-def get_window_size(weeks, timeframe):
+def get_window_size(dates, weeks, timeframe):
     # Define the maximum window length in days
-    max_window = weeks * 7
+    max_window = int(weeks * 7)
 
     # Define the minimum window length based on the timeframe
-    # lowered percentage because as the weeks increase, the spacing between the lines increase as well so we change the coefficient accordingly
     if "m" in timeframe:
-        min_window = max_window * 0.2
+        min_window = int(
+            max_window * 0.02
+        )  # Very short since minutes have high data frequency
     elif "h" in timeframe:
-        min_window = max_window * 0.35
+        min_window = int(
+            max_window * 0.4
+        )  # Hours are slower than minutes but still frequent
     elif "d" in timeframe:
-        min_window = max_window * 0.5
-
-    # Print the maximum and minimum window lengths for debugging
-    print(max_window)
-    print(min_window)
-
-    # Select a random left index within the date range
-    left = np.random.randint(0, len(dates) - 1)
-
-    # Ensure that the right index does not exceed the date range
-    min_possible_right = min(left + min_window, len(dates) - 1)
-    max_possible_right = min(left + max_window, len(dates) - 1)
-
-    # Select a random right index within the possible range
-    if min_possible_right >= max_possible_right:
-        right = max_possible_right
+        min_window = int(
+            max_window * 0.6
+        )  # Days have way fewer data points, so a larger min window
     else:
-        right = np.random.randint(min_possible_right, max_possible_right + 1)
+        raise ValueError("Invalid timeframe format.")
+
+    # Print for debugging
+    print(f"Max Window: {max_window}, Min Window: {min_window}")
+
+    # Ensure dates list is long enough
+    if len(dates) <= min_window:
+        raise ValueError("Not enough data points to create a valid window.")
+
+    # Select a random left index ensuring room for max_window
+    left = np.random.randint(0, len(dates) - max_window)
+
+    # Select a random window size between min and max constraints
+    window_size = np.random.randint(min_window, max_window + 1)
+
+    # Calculate right index ensuring it does not exceed bounds
+    right = min(left + window_size, len(dates) - 1)
 
     return left, right
 
@@ -156,7 +162,7 @@ def csvs_of_random_windows(timeframe, weeks, dates, num_csv):
         # Select a random symbol from the symbol list
         symbol = symbol_list[np.random.randint(0, len(symbol_list) - 1)]
 
-        left, right = get_window_size(timeframe=timeframe, weeks=weeks)
+        left, right = get_window_size(dates=dates, timeframe=timeframe, weeks=weeks)
 
         # Get the start and end dates based on the selected indices
         start_date = dates[left]
@@ -196,4 +202,4 @@ def csvs_of_random_windows(timeframe, weeks, dates, num_csv):
 # Manual fetch
 # get_historical_data(symbol, timeframe, weeks, "2025-03-09", "2016-01-02")
 
-csvs_of_random_windows(timeframe=timeframe, weeks=weeks, dates=dates, num_csv=20)
+csvs_of_random_windows(timeframe=timeframe, weeks=weeks, dates=dates, num_csv=5)
