@@ -8,12 +8,13 @@ import numpy as np
 import warnings
 from math import ceil
 
+# know which symbols to comment out and adjust timeframe accordingly to make good data
 symbol_list = [
-    "BTC/USD",  # Bitcoin: Coinbase’s original asset since 2012
-    "ETH/USD",  # Ethereum: Added in 2016
-    "LTC/USD",  # Litecoin: One of the earliest altcoins, available since around 2013
-    "SOL/USD",
-    "DOGE/USD",
+    # "BTC/USD",  # Bitcoin: Coinbase’s original asset since 2012
+    # "ETH/USD",  # Ethereum: Added in 2016
+    # "LTC/USD",  # Litecoin: One of the earliest altcoins, available since around 2013
+    # "SOL/USD",
+    # "DOGE/USD",
     "BCH/USD",  # Bitcoin Cash: Introduced after the Bitcoin fork in 2017
     "XLM/USD",  # Stellar: An early altcoin from around 2014-2015
     "ADA/USD",  # Cardano: One of the older altcoins, listed a few years back
@@ -21,11 +22,11 @@ symbol_list = [
     "LINK/USD",  # Chainlink: Although a bit later than the others, it’s one of the longer–standing altcoins among the newer generation
 ]
 
-timeframe = "1d"
-weeks = 200
+timeframe = "1h"
+weeks = 100
 
 # 1d timeframe
-date_range = pd.date_range(start="2015-03-06", end="2025-03-07")
+date_range = pd.date_range(start="2021-03-06", end="2025-03-07")
 
 # for 1m timeframe
 # date_range = pd.date_range(
@@ -202,4 +203,4 @@ def csvs_of_random_windows(timeframe, weeks, dates, num_csv):
 # Manual fetch
 # get_historical_data(symbol, timeframe, weeks, "2025-03-09", "2016-01-02")
 
-csvs_of_random_windows(timeframe=timeframe, weeks=weeks, dates=dates, num_csv=5)
+csvs_of_random_windows(timeframe=timeframe, weeks=weeks, dates=dates, num_csv=10)
