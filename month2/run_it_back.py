@@ -79,7 +79,17 @@ def run_backtest(Strategy):
                 bt = Backtest(df, Strategy, cash=10_000, commission=0.002)
             except:
                 df = pd.DataFrame(
-                    df, columns=["timestamp", "open", "high", "low", "close", "volume"]
+                    df,
+                    columns=[
+                        "timestamp",
+                        "open",
+                        "high",
+                        "low",
+                        "close",
+                        "volume",
+                        "support",
+                        "resis",
+                    ],
                 )
 
                 df.columns = [
@@ -89,6 +99,8 @@ def run_backtest(Strategy):
                     "Low",
                     "Close",
                     "Volume",
+                    "Support",
+                    "Resis",
                 ]  # Rename columns
 
                 # Backtest

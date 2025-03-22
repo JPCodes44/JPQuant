@@ -10,23 +10,23 @@ from math import ceil
 
 # know which symbols to comment out and adjust timeframe accordingly to make good data
 symbol_list = [
-    # "BTC/USD",  # Bitcoin: Coinbase’s original asset since 2012
-    # "ETH/USD",  # Ethereum: Added in 2016
-    # "LTC/USD",  # Litecoin: One of the earliest altcoins, available since around 2013
-    # "SOL/USD",
+    "BTC/USD",  # Bitcoin: Coinbase’s original asset since 2012
+    "ETH/USD",  # Ethereum: Added in 2016
+    "LTC/USD",  # Litecoin: One of the earliest altcoins, available since around 2013
+    "SOL/USD",
     # "DOGE/USD",
-    "BCH/USD",  # Bitcoin Cash: Introduced after the Bitcoin fork in 2017
-    "XLM/USD",  # Stellar: An early altcoin from around 2014-2015
-    "ADA/USD",  # Cardano: One of the older altcoins, listed a few years back
-    "EOS/USD",  # EOS: Among the earlier tokens in the ICO boom, on Coinbase since around 2018
-    "LINK/USD",  # Chainlink: Although a bit later than the others, it’s one of the longer–standing altcoins among the newer generation
+    # "BCH/USD",  # Bitcoin Cash: Introduced after the Bitcoin fork in 2017
+    # "XLM/USD",  # Stellar: An early altcoin from around 2014-2015
+    # "ADA/USD",  # Cardano: One of the older altcoins, listed a few years back
+    # "EOS/USD",  # EOS: Among the earlier tokens in the ICO boom, on Coinbase since around 2018
+    # "LINK/USD",  # Chainlink: Although a bit later than the others, it’s one of the longer–standing altcoins among the newer generation
 ]
 
 timeframe = "1h"
-weeks = 100
+weeks = 200
 
 # 1d timeframe
-date_range = pd.date_range(start="2021-03-06", end="2025-03-07")
+date_range = pd.date_range(start="2019-03-06", end="2025-03-07")
 
 # for 1m timeframe
 # date_range = pd.date_range(
@@ -101,7 +101,15 @@ def get_historical_data(symbol, timeframe, weeks):
 
         # Convert the data to a DataFrame
         df = pd.DataFrame(
-            data, columns=["datetime", "open", "high", "low", "close", "volume"]
+            data,
+            columns=[
+                "datetime",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+            ],
         )
 
         # Convert the datetime column to a pandas datetime object
@@ -115,6 +123,13 @@ def get_historical_data(symbol, timeframe, weeks):
 
     # Reorder the columns
     dataframe = dataframe[["open", "high", "low", "close", "volume"]]
+
+    if len(df) > 2:
+        dataframe["support"] = dataframe[:-2]["close"].min()
+        dataframe["resis"] = dataframe[:-2]["close"].max()
+    else:
+        dataframe["support"] = dataframe["close"].min()
+        dataframe["resis"] = dataframe["close"].max()
 
     return dataframe
 
