@@ -10,28 +10,28 @@ from math import ceil
 
 # know which symbols to comment out and adjust timeframe accordingly to make good data
 symbol_list = [
-    "BTC/USD",  # Bitcoin: Coinbase’s original asset since 2012
+    # "BTC/USD",  # Bitcoin: Coinbase’s original asset since 2012
     "ETH/USD",  # Ethereum: Added in 2016
     "LTC/USD",  # Litecoin: One of the earliest altcoins, available since around 2013
     "SOL/USD",
-    # "DOGE/USD",
-    # "BCH/USD",  # Bitcoin Cash: Introduced after the Bitcoin fork in 2017
-    # "XLM/USD",  # Stellar: An early altcoin from around 2014-2015
+    "DOGE/USD",
+    "BCH/USD",  # Bitcoin Cash: Introduced after the Bitcoin fork in 2017
+    "XLM/USD",  # Stellar: An early altcoin from around 2014-2015
     # "ADA/USD",  # Cardano: One of the older altcoins, listed a few years back
     # "EOS/USD",  # EOS: Among the earlier tokens in the ICO boom, on Coinbase since around 2018
     # "LINK/USD",  # Chainlink: Although a bit later than the others, it’s one of the longer–standing altcoins among the newer generation
 ]
 
-timeframe = "1h"
-weeks = 200
+timeframe = "1m"
+weeks = 0.5
 
 # 1d timeframe
-date_range = pd.date_range(start="2019-03-06", end="2025-03-07")
+# date_range = pd.date_range(start="2019-03-06", end="2025-03-07")
 
 # for 1m timeframe
-# date_range = pd.date_range(
-#     start="2024-12-12 09:10:00", end="2025-03-14 16:00:00", freq="min"
-# )
+date_range = pd.date_range(
+    start="2024-12-12 09:10:00", end="2025-03-14 16:00:00", freq="min"
+)
 
 dates = np.array(date_range)  # Convert to NumPy array for indexing
 
@@ -61,80 +61,61 @@ def timeframe_to_sec(timeframe):
 
 
 def get_historical_data(symbol, timeframe, weeks):
-    # Get the current UTC time
     now = datetime.datetime.utcnow()
-
-    # Initialize the Coinbase exchange with API keys and rate limiting
+    print("Current UTC time:", now)
     coinbase = ccxt.coinbase(
         {"apikey": c.key, "secret": c.secret, "enableRateLimit": True}
     )
 
-    # Convert the timeframe to seconds
-    granularity = timeframe_to_sec(timeframe)
+    granularity = timeframe_to_sec(timeframe)  # Convert timeframe to seconds
 
-    # Calculate the total time in seconds for the given number of weeks
     total_time = weeks * 7 * 24 * 60 * 60
-
-    # Calculate the number of API calls needed to fetch the data
     run_times = ceil(total_time / (granularity * 200))
 
-    # Initialize an empty DataFrame to store the data
     dataframe = pd.DataFrame()
 
-    # Loop through the number of API calls needed
     for i in range(run_times):
         since = now - datetime.timedelta(seconds=granularity * 200 * (i + 1))
         since_timestamp = int(since.timestamp()) * 1000  # Convert to milliseconds
 
-        data = coinbase.fetch_ohlcv(symbol, timeframe, since=since_timestamp, limit=200)
+        # Check if since_timestamp is in the future
+        if since_timestamp > int(now.timestamp()) * 1000:
+            print("Skipping request because since timestamp is in the future.")
+            continue
 
+        print("Since timestamp:", since_timestamp)
+
+        data = coinbase.fetch_ohlcv(symbol, timeframe, since=since_timestamp, limit=200)
         df = pd.DataFrame(
             data, columns=["datetime", "open", "high", "low", "close", "volume"]
         )
-
         df["datetime"] = pd.to_datetime(df["datetime"], unit="ms")
-        # df["batch"] = i
-        # df["mid"] = (df["open"] + df["close"]) / 2
-
         dataframe = pd.concat([df, dataframe])
 
-    # # Reset the index to create a clean counter column
-    # dataframe = dataframe.sort_values(by="datetime").reset_index(drop=True)
-
-    # # Add the classic row counter as a new column (optional since reset_index already gives you 0-N index)
-    # dataframe["row_index"] = range(len(dataframe))
-
-    # Set datetime as the index (for plotting/timeseries goodness)
     dataframe = dataframe.set_index("datetime")
-
-    # Reorder the columns (row_index included)
     dataframe = dataframe[["open", "high", "low", "close", "volume"]]
-
-    # # Calculate support and resistance levels
-    # if len(dataframe) > 2:
-    #     dataframe["support"] = dataframe[:-2]["close"].min()
-    #     dataframe["resis"] = dataframe[:-2]["close"].max()
-    # else:
-    #     dataframe["support"] = dataframe["close"].min()
-    #     dataframe["resis"] = dataframe["close"].max()
 
     return dataframe
 
 
 def get_window_size(dates, weeks, timeframe):
-    # Define the maximum window length in days
-    max_window = int(weeks * 7)
 
     # Define the minimum window length based on the timeframe
     if "m" in timeframe:
+        # Define the maximum window length in days
+        max_window = int(weeks * 7 * 24 * 60)
         min_window = int(
             max_window * 0.02
         )  # Very short since minutes have high data frequency
     elif "h" in timeframe:
+        # Define the maximum window length in hours
+        max_window = int(weeks * 7 * 24)
         min_window = int(
             max_window * 0.4
         )  # Hours are slower than minutes but still frequent
     elif "d" in timeframe:
+        # Define the maximum window length in days
+        max_window = int(weeks * 7)
         min_window = int(
             max_window * 0.6
         )  # Days have way fewer data points, so a larger min window

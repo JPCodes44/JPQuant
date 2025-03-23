@@ -73,14 +73,6 @@ def process_data_to_df(snapshot_data):
 
         df = pd.DataFrame(data, columns=columns)
 
-        # Calculate support and resistance, excluding the last two rows for the calculation
-        if len(df) > 2:
-            df["support"] = df[:-2]["close"].min()
-            df["resis"] = df[:-2]["close"].max()
-        else:  # If DataFrame has 2 or fewer rows, use the available 'close' prices for calculation
-            df["support"] = df["close"].min()
-            df["resis"] = df["close"].max()
-
         return df
     else:
         return pd.DataFrame()  # Return empty DataFrame if no data
