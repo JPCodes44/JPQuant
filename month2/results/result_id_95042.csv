@@ -1,0 +1,11 @@
+Start,End,Duration,Exposure Time [%],Equity Final [$],Equity Peak [$],Commissions [$],Return [%],Buy & Hold Return [%],Return (Ann.) [%],Volatility (Ann.) [%],CAGR [%],Sharpe Ratio,Sortino Ratio,Calmar Ratio,Max. Drawdown [%],Avg. Drawdown [%],Max. Drawdown Duration,Avg. Drawdown Duration,# Trades,Win Rate [%],Best Trade [%],Worst Trade [%],Avg. Trade [%],Max. Trade Duration,Avg. Trade Duration,Profit Factor,Expectancy [%],SQN,Kelly Criterion
+2021-05-21 21:00:00,2023-11-12,904 days 03:00:00,0.0,10000.0,10000.0,0.0,-14.991164712320524,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionStrategy
+2021-05-21 21:00:00,2022-10-06,502 days 03:00:00,0.0,10000.0,10000.0,0.0,-42.76279236865081,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionStrategy
+2021-05-21 21:00:00,2022-10-15,511 days 03:00:00,0.0,10000.0,10000.0,0.0,-45.85409869622066,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionStrategy
+2021-05-21 21:00:00,2021-11-26,188 days 03:00:00,0.0,10000.0,10000.0,0.0,25.60830355623618,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionStrategy
+2021-05-21 21:00:00,2022-01-25,248 days 03:00:00,0.0,10000.0,10000.0,0.0,-39.305768249106684,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionStrategy
+2021-05-21 21:00:00,2022-11-24,551 days 03:00:00,0.0,10000.0,10000.0,0.0,-50.66567522067332,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionStrategy
+2021-05-21 21:00:00,2021-11-26,188 days 03:00:00,0.0,10000.0,10000.0,0.0,60.266530694980624,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionStrategy
+2021-05-21 21:00:00,2023-07-31,800 days 03:00:00,0.0,10000.0,10000.0,0.0,-19.63309470084183,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionStrategy
+2021-05-21 21:00:00,2022-05-03,346 days 03:00:00,0.0,10000.0,10000.0,0.0,18.486429582966075,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionStrategy
+2021-05-21 21:00:00,2022-09-09,475 days 03:00:00,0.0,10000.0,10000.0,0.0,-31.496651781051966,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionStrategy
