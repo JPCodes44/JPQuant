@@ -1,120 +1,155 @@
 import numpy as np
-import pandas as pd
 from backtesting import Strategy
-from backtesting.lib import crossover
 from run_it_back import run_backtest
-import talib as ta
+from scipy.signal import find_peaks
+from sklearn.linear_model import LinearRegression
 
 
-def check_trend_line(support: bool, pivot: int, slope: float, y: np.ndarray):
-    intercept = -slope * pivot + y[pivot]
-    line_vals = slope * np.arange(len(y)) + intercept
-    diffs = line_vals - y
+# ------------------ Best Fit Line Indicator ------------------
+def best_fit_line_range_channel(
+    lookback: int,
+    close: np.ndarray,
+    index: np.ndarray,
+    mid: np.ndarray,
+    is_upper: bool,
+    is_lower: bool,
+    is_reg: bool,
+) -> np.ndarray:
+    result = np.full_like(close, np.nan, dtype=np.float64)
+    model = LinearRegression()
+    buffer = 5
 
-    if support and diffs.max() > 1e-5:
-        return -1.0
-    elif not support and diffs.min() < -1e-5:
-        return -1.0
+    for i in range(lookback, len(close), lookback):
+        y = mid[i - lookback : i]
+        y_actual = close[i - lookback : i]  # use close to find high/low
+        X = np.arange(lookback).reshape(-1, 1)
 
-    return (diffs**2.0).sum()
+        model.fit(X, y)
+        y_fit = (X * model.coef_[0] + model.intercept_).flatten()
 
+        # Find max/min actual close value within the segment
+        residuals = y_actual - y_fit
+        upper_offset = np.max(residuals)  # how far above the regression the high got
+        lower_offset = np.min(residuals)  # how far below the regression the low got
 
-def optimize_slope(support: bool, pivot: int, init_slope: float, y: np.ndarray):
-    slope_unit = (y.max() - y.min()) / len(y)
-    opt_step = 1.0
-    min_step = 0.0001
-    curr_step = opt_step
+        # peaks, _ = find_peaks(residuals, distance=3, prominence=0.2)
+        # upper_offset2 = peaks[2] if len(peaks) > 1 else peaks[0]
+        # inv_residuals = -1 * residuals
+        # invpeaks, _ = find_peaks(residuals, distance=3, prominence=0.2)
+        # lower_offset2 = peaks[2] if len(peaks) > 1 else peaks[0]
 
-    best_slope = init_slope
-    best_err = check_trend_line(support, pivot, init_slope, y)
-    assert best_err >= 0.0
+        # Insert visual gaps before/after segment
+        for j in range(buffer):
+            if i - lookback - j >= 0:
+                result[i - lookback - j] = np.nan
+            if i + j < len(close):
+                result[i + j] = np.nan
 
-    get_derivative = True
-    while curr_step > min_step:
-        if get_derivative:
-            slope_change = best_slope + slope_unit * min_step
-            test_err = check_trend_line(support, pivot, slope_change, y)
-            derivative = test_err - best_err
+        # Select what to return based on the flags
+        if is_reg:
+            result[i - lookback : i] = y_fit
+        elif is_upper:
+            result[i - lookback : i] = y_fit + upper_offset
+        elif is_lower:
+            result[i - lookback : i] = (
+                y_fit + lower_offset
+            )  # NOT minus! offset is negative if needed
 
-            if test_err < 0.0:
-                slope_change = best_slope - slope_unit * min_step
-                test_err = check_trend_line(support, pivot, slope_change, y)
-                derivative = best_err - test_err
-
-            if test_err < 0.0:
-                raise Exception("Derivative failed. Check your data.")
-
-            get_derivative = False
-
-        if derivative > 0.0:
-            test_slope = best_slope - slope_unit * curr_step
-        else:
-            test_slope = best_slope + slope_unit * curr_step
-
-        test_err = check_trend_line(support, pivot, test_slope, y)
-        if test_err < 0 or test_err >= best_err:
-            curr_step *= 0.5
-        else:
-            best_err = test_err
-            best_slope = test_slope
-            get_derivative = True
-
-    return best_slope, -best_slope * pivot + y[pivot]
+    return result
 
 
-def fit_trendlines_high_low(high: np.ndarray, low: np.ndarray, close: np.ndarray):
-    x = np.arange(len(close))
-    coefs = np.polyfit(x, close, 1)
-    line_points = coefs[0] * x + coefs[1]
-    upper_pivot = (high - line_points).argmax()
-    lower_pivot = (low - line_points).argmin()
-
-    support_coefs = optimize_slope(True, lower_pivot, coefs[0], low)
-    resist_coefs = optimize_slope(False, upper_pivot, coefs[0], high)
-    return support_coefs, resist_coefs
-
-
-class TrendlineSlopeStrategy(Strategy):
-    lookback = 30
+# ------------------ STRATEGY ------------------
+class SegmentedRegressionWithFinalFitBands(Strategy):
+    lookback = 150  # Rolling window size
+    lookback_intra = 50
+    lookback_long = 250
 
     def init(self):
-        self.support_slopes = []
-        self.resist_slopes = []
+        # Register best fit line as a proper indicator
+        std = np.std(self.data.Close)
+        self.mid = (self.data.Open + self.data.Close) / 2
+        self.index = np.arange(len(self.data.Open))
+
+        self.reg_line = self.I(
+            best_fit_line_range_channel,
+            self.lookback,
+            self.data.Close,
+            self.data.index,
+            self.mid,
+            False,
+            False,
+            True,
+        )
+
+        self.upper_band = self.I(
+            best_fit_line_range_channel,
+            self.lookback,
+            self.data.Close,
+            self.data.index,
+            self.mid,
+            True,
+            False,
+            False,
+        )
+
+        self.lower_band = self.I(
+            best_fit_line_range_channel,
+            self.lookback,
+            self.data.Close,
+            self.data.index,
+            self.mid,
+            False,
+            True,
+            False,
+        )
+
+        self.upper_band_intra = self.I(
+            best_fit_line_range_channel,
+            self.lookback_intra,
+            self.data.Close,
+            self.data.index,
+            self.mid,
+            True,
+            False,
+            False,
+        )
+
+        self.lower_band_intra = self.I(
+            best_fit_line_range_channel,
+            self.lookback_intra,
+            self.data.Close,
+            self.data.index,
+            self.mid,
+            False,
+            True,
+            False,
+        )
+
+        self.upper_band_long = self.I(
+            best_fit_line_range_channel,
+            self.lookback_long,
+            self.data.Close,
+            self.data.index,
+            self.mid,
+            True,
+            False,
+            False,
+        )
+
+        self.lower_band_long = self.I(
+            best_fit_line_range_channel,
+            self.lookback_long,
+            self.data.Close,
+            self.data.index,
+            self.mid,
+            False,
+            True,
+            False,
+        )
 
     def next(self):
-        if len(self.data.Close) < self.lookback:
-            self.support_slopes.append(np.nan)
-            self.resist_slopes.append(np.nan)
-            return
-
-        close = self.data.Close[-self.lookback :]
-        high = self.data.High[-self.lookback :]
-        low = self.data.Low[-self.lookback :]
-
-        support, resist = fit_trendlines_high_low(
-            np.array(high), np.array(low), np.array(close)
-        )
-        support_slope, support_intercept = support
-        resist_slope, resist_intercept = resist
-
-        x = np.arange(self.lookback)
-        support_line = support_slope * x + support_intercept
-        resist_line = resist_slope * x + resist_intercept
-
-        current_price = self.data.Close[-1]
-        current_support = support_line[-1]
-        current_resistance = resist_line[-1]
-
-        self.support_slopes.append(support_slope)
-        self.resist_slopes.append(resist_slope)
-
-        # Entry: Upward support + price above support line
-        if support_slope > 0 and current_price > current_support and not self.position:
-            self.buy(sl=current_price * 0.97)  # 3% stop loss
-
-        # Exit: Downward resistance + price below resistance line
-        elif resist_slope < 0 and current_price < current_resistance and self.position:
-            self.position.close()
+        pass
 
 
-run_backtest(TrendlineSlopeStrategy)
+# ------------------ RUN BACKTEST ------------------
+run_backtest(SegmentedRegressionWithFinalFitBands)

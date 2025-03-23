@@ -22,14 +22,17 @@
         "ETHUSD",
         "fromdate",
         "iloc",
+        "invpeaks",
         "isna",
         "jpmak",
         "linregress",
         "lookback",
         "macd",
+        "ndarray",
         "ohlcv",
         "pfast",
         "phemex",
+        "polyfit",
         "pslow",
         "resis",
         "runstest",
@@ -43,6 +46,7 @@
         "talib",
         "timeperiod",
         "todate",
+        "trendline",
         "txamount"
     ]
 }

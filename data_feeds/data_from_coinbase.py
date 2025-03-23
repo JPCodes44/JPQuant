@@ -83,53 +83,40 @@ def get_historical_data(symbol, timeframe, weeks):
 
     # Loop through the number of API calls needed
     for i in range(run_times):
-        # Calculate the timestamp for the current batch of data
-        # 'now' is assumed to be the current datetime
-        # 'granularity' is the time interval in seconds
-        # 'i' is the current batch index
-
-        # Calculate the datetime for the current batch by subtracting a time delta from 'now'
-        # The time delta is calculated as 'granularity * 200 * (i + 1)' seconds
         since = now - datetime.timedelta(seconds=granularity * 200 * (i + 1))
-
-        # Convert the 'since' datetime to a POSIX timestamp (seconds since epoch)
-        # Then convert the timestamp to milliseconds by multiplying by 1000
         since_timestamp = int(since.timestamp()) * 1000  # Convert to milliseconds
 
-        # Fetch the OHLCV data from Coinbase
         data = coinbase.fetch_ohlcv(symbol, timeframe, since=since_timestamp, limit=200)
 
-        # Convert the data to a DataFrame
         df = pd.DataFrame(
-            data,
-            columns=[
-                "datetime",
-                "open",
-                "high",
-                "low",
-                "close",
-                "volume",
-            ],
+            data, columns=["datetime", "open", "high", "low", "close", "volume"]
         )
 
-        # Convert the datetime column to a pandas datetime object
         df["datetime"] = pd.to_datetime(df["datetime"], unit="ms")
+        # df["batch"] = i
+        # df["mid"] = (df["open"] + df["close"]) / 2
 
-        # Concatenate the new data with the existing DataFrame
         dataframe = pd.concat([df, dataframe])
 
-    # Set the datetime column as the index
+    # # Reset the index to create a clean counter column
+    # dataframe = dataframe.sort_values(by="datetime").reset_index(drop=True)
+
+    # # Add the classic row counter as a new column (optional since reset_index already gives you 0-N index)
+    # dataframe["row_index"] = range(len(dataframe))
+
+    # Set datetime as the index (for plotting/timeseries goodness)
     dataframe = dataframe.set_index("datetime")
 
-    # Reorder the columns
+    # Reorder the columns (row_index included)
     dataframe = dataframe[["open", "high", "low", "close", "volume"]]
 
-    if len(df) > 2:
-        dataframe["support"] = dataframe[:-2]["close"].min()
-        dataframe["resis"] = dataframe[:-2]["close"].max()
-    else:
-        dataframe["support"] = dataframe["close"].min()
-        dataframe["resis"] = dataframe["close"].max()
+    # # Calculate support and resistance levels
+    # if len(dataframe) > 2:
+    #     dataframe["support"] = dataframe[:-2]["close"].min()
+    #     dataframe["resis"] = dataframe[:-2]["close"].max()
+    # else:
+    #     dataframe["support"] = dataframe["close"].min()
+    #     dataframe["resis"] = dataframe["close"].max()
 
     return dataframe
 
