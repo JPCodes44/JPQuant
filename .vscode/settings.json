@@ -17,6 +17,7 @@
         "ccxt",
         "cerebro",
         "doji",
+        "dotenv",
         "dropna",
         "endvalue",
         "ETHUSD",

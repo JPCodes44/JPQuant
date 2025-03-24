@@ -3,7 +3,6 @@ import datetime
 import os
 import ccxt
 import dont_share as d
-import coinbase_dont_share as c
 import numpy as np
 import warnings
 from math import ceil
