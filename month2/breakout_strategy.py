@@ -5,9 +5,6 @@ from scipy.signal import find_peaks
 from sklearn.linear_model import LinearRegression
 
 
-# ------------------ Best Fit Line Indicator ------------------
-
-
 # ------------------ STRATEGY ------------------
 class SegmentedRegressionWithFinalFitBands(Strategy):
     lookback = 150  # Main trend structure (big channel)
