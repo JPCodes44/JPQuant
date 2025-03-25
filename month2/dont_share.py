@@ -1,2 +1,0 @@
-key = "79111d6c-a3ae-46ba-b64c-0cc3fda23755"
-secret = "kUyyKeHVmv_pPkW7sqXwL1-eGPcFkIr4_T7yEDALMHpkM2Y5MjRmOS0xOGE3LTQ5M2UtOTRhNi1jMWFmZTNkZjBlMDA"

@@ -1,0 +1,11 @@
+Start,End,Duration,Exposure Time [%],Equity Final [$],Equity Peak [$],Commissions [$],Return [%],Buy & Hold Return [%],Return (Ann.) [%],Volatility (Ann.) [%],CAGR [%],Sharpe Ratio,Sortino Ratio,Calmar Ratio,Max. Drawdown [%],Avg. Drawdown [%],Max. Drawdown Duration,Avg. Drawdown Duration,# Trades,Win Rate [%],Best Trade [%],Worst Trade [%],Avg. Trade [%],Max. Trade Duration,Avg. Trade Duration,Profit Factor,Expectancy [%],SQN,Kelly Criterion
+2021-08-18 08:54:00,2021-08-21 01:52:00,2 days 16:58:00,0.0,10000.0,10000.0,0.0,8.605078782539643,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionWithFinalFitBands
+2021-09-27 12:06:00,2021-10-01 05:13:00,3 days 17:07:00,0.0,10000.0,10000.0,0.0,-0.03932885773834909,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionWithFinalFitBands
+2025-02-23 04:31:00,2025-02-26 10:45:00,3 days 06:14:00,0.0,10000.0,10000.0,0.0,-9.504605571778187,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionWithFinalFitBands
+2025-02-10 07:51:00,2025-02-14 22:09:00,4 days 14:18:00,0.0,10000.0,10000.0,0.0,4.133307025066206,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionWithFinalFitBands
+2020-05-10 04:11:00,2020-05-14 09:59:00,4 days 05:48:00,0.0,10000.0,10000.0,0.0,10.835812821206385,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionWithFinalFitBands
+2023-05-31 15:56:00,2023-06-04 09:02:00,3 days 17:06:00,0.0,10000.0,10000.0,0.0,5.075646656905821,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionWithFinalFitBands
+2024-02-22 20:46:00,2024-02-25 18:08:00,2 days 21:22:00,0.0,10000.0,10000.0,0.0,1.6856437455496427,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionWithFinalFitBands
+2021-06-19 14:04:00,2021-06-22 16:15:00,3 days 02:11:00,0.0,10000.0,10000.0,0.0,-25.82660621475174,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionWithFinalFitBands
+2023-01-04 00:59:00,2023-01-07 22:52:00,3 days 21:53:00,0.0,10000.0,10000.0,0.0,1.6796631306917795,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionWithFinalFitBands
+2021-07-31 22:48:00,2021-08-04 07:33:00,3 days 08:45:00,0.0,10000.0,10000.0,0.0,-9.857796109612647,0.0,0.0,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionWithFinalFitBands

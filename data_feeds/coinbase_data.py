@@ -49,8 +49,14 @@ SYMBOL_LIST = [
     # "AAVE-USD",
     # "UNI-USD",
 ]
-TIMEFRAME = "1m"  # Timeframe (e.g., '1m', '5m', '1h', '6h', '1d')
-SAVE_DIR = "/Users/jpmak/JPQuant/data"  # Directory to save the data files
+TIMEFRAME = "1h"  # Timeframe (e.g., '1m', '5m', '1h', '6h', '1d')
+
+if "m" in TIMEFRAME:
+    SAVE_DIR = "/Users/jpmak/JPQuant/data/1m_data"  # Directory to save the data files
+elif "h" in TIMEFRAME:
+    SAVE_DIR = "/Users/jpmak/JPQuant/data/1h_data"  # Directory to save the data files
+elif "d" in TIMEFRAME:
+    SAVE_DIR = "/Users/jpmak/JPQuant/data/1d_data"  # Directory to save the data files
 
 # DATE_RANGE = pd.date_range(start="2019-03-06", end="2025-03-07") 1d timeframe
 
@@ -239,13 +245,13 @@ def generate_random_date_range(timeframe: str):
         earliest = pd.to_datetime("2020-01-01 09:00:00")
         latest = pd.to_datetime("2025-03-23 09:00:00")
         abs_min = datetime.timedelta(hours=24)
-        abs_max = datetime.timedelta(days=30)
-        freq = "H"
+        abs_max = datetime.timedelta(days=240)
+        freq = "h"
     elif "d" in timeframe:
         earliest = pd.to_datetime("2020-01-01")
         latest = pd.to_datetime("2025-03-23")
         abs_min = datetime.timedelta(days=7)
-        abs_max = datetime.timedelta(days=120)
+        abs_max = datetime.timedelta(days=680)
         freq = "D"
     else:
         raise ValueError("Invalid timeframe")

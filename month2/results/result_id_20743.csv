@@ -1,5 +1,0 @@
-Start,End,Duration,Exposure Time [%],Equity Final [$],Equity Peak [$],Commissions [$],Return [%],Buy & Hold Return [%],Return (Ann.) [%],Volatility (Ann.) [%],CAGR [%],Sharpe Ratio,Sortino Ratio,Calmar Ratio,Max. Drawdown [%],Avg. Drawdown [%],Max. Drawdown Duration,Avg. Drawdown Duration,# Trades,Win Rate [%],Best Trade [%],Worst Trade [%],Avg. Trade [%],Max. Trade Duration,Avg. Trade Duration,Profit Factor,Expectancy [%],SQN,Kelly Criterion
-2025-03-20 06:31:00,2025-03-20 11:40:00,0 days 05:09:00,0.0,10000.0,10000.0,0.0,-1.3088404133180314,0.0,,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionWithFinalFitBands
-2025-03-21 22:07:00,2025-03-22 19:25:00,0 days 21:18:00,0.0,10000.0,10000.0,0.0,0.020221424599367623,0.0,,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionWithFinalFitBands
-2025-03-21 20:22:00,2025-03-22 12:28:00,0 days 16:06:00,0.0,10000.0,10000.0,0.0,0.6938816855753555,0.0,,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionWithFinalFitBands
-2025-03-20 05:52:00,2025-03-20 15:45:00,0 days 09:53:00,0.0,10000.0,10000.0,0.0,-4.240653330336403,0.0,,0.0,,,,-0.0,,,,0,,,,,,,,,,,SegmentedRegressionWithFinalFitBands

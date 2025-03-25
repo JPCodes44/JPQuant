@@ -1,29 +1,38 @@
 import numpy as np
 from backtesting import Strategy
 from run_it_back import run_backtest
-from scipy.signal import find_peaks
 from sklearn.linear_model import LinearRegression
+
+TIMEFRAME = "m"
+
+if "m" in TIMEFRAME:
+    DATA_FOLDER = "/Users/jpmak/JPQuant/data/1m_data"
+elif "h" in TIMEFRAME:
+    DATA_FOLDER = "/Users/jpmak/JPQuant/data/1h_data"
+elif "d" in TIMEFRAME:
+    DATA_FOLDER = "/Users/jpmak/JPQuant/data/1d_data"
 
 
 # ------------------ STRATEGY ------------------
 class SegmentedRegressionWithFinalFitBands(Strategy):
-    lookback = 150  # Main trend structure (big channel)
-    lookback_intra = 50  # Intraday tighter structure (small channel)
+    lookback = 250  # Main trend structure (big channel)
+    lookback_intra = 100  # Intraday tighter structure (small channel)
     lookback_long = 250  # Macro long-term structure
     lookback_intra_shorter = 20  # Intraday-shorter even tighter structure
 
     def init(self):
-        std = np.std(self.data.Close)  # Global std (not used here but could be)
         self.mid = (
             self.data.Open + self.data.Close
         ) / 2  # Midpoint between Open and Close for smoother structure
         self.index = np.arange(len(self.data.Open))  # Create simple x-axis array
         self.slopes = []
+        self.slopes_intra = []
+        self.slopes_intra_shorter = []
+        self.slopes_long = []
 
         def best_fit_line_range_channel(
             lookback: int,
             close: np.ndarray,
-            index: np.ndarray,
             mid: np.ndarray,
             is_upper: bool,
             is_lower: bool,
@@ -36,7 +45,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             buffer = 5  # Number of NaNs to insert before and after each segment for visual gap
             for i in range(
                 lookback, len(close), lookback
-            ):  # Loop through data in chunks of size `lookback`
+            ):  # Loop through data in chunks of size lookback
                 y = mid[
                     i - lookback : i
                 ]  # Regression input: midpoint values over current window
@@ -52,7 +61,14 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                     X * model.coef_[0] + model.intercept_
                 ).flatten()  # Predict fitted line values
 
-                np.append(self.slopes, model.coef_[0])
+                if lookback == self.lookback:
+                    np.append(self.slopes, model.coef_[0])
+                elif lookback == self.lookback_intra:
+                    np.append(self.slopes_intra, model.coef_[0])
+                elif lookback == self.lookback_intra_shorter:
+                    np.append(self.slopes_intra_shorter, model.coef_[0])
+                elif lookback == self.lookback_long:
+                    np.append(self.slopes_long, model.coef_[0])
 
                 residuals = (
                     y_actual - y_fit
@@ -85,25 +101,23 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                         y_fit + lower_offset
                     )  # Plot bottom of channel (offset is already negative)
 
-            return result  # Return the final array (channel or regression)
+            return result  # Return the final array (channel or regression) I
 
         # --- Main structure channels ---
-        self.reg_line = self.I(
-            best_fit_line_range_channel,
-            self.lookback,
-            self.data.Close,
-            self.data.index,
-            self.mid,
-            False,
-            False,
-            True,  # <- this is the regression center line
-        )
+        # self.reg_line = self.I(
+        #     best_fit_line_range_channel,
+        #     self.lookback,
+        #     self.data.Close,
+        #     self.mid,
+        #     False,
+        #     False,
+        #     True,  # <- this is the regression center line
+        # )
 
         self.upper_band = self.I(
             best_fit_line_range_channel,
             self.lookback,
             self.data.Close,
-            self.data.index,
             self.mid,
             True,  # <- this is upper band
             False,
@@ -114,7 +128,6 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             best_fit_line_range_channel,
             self.lookback,
             self.data.Close,
-            self.data.index,
             self.mid,
             False,
             True,  # <- this is lower band
@@ -126,7 +139,6 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             best_fit_line_range_channel,
             self.lookback_intra,
             self.data.Close,
-            self.data.index,
             self.mid,
             True,
             False,
@@ -137,64 +149,64 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             best_fit_line_range_channel,
             self.lookback_intra,
             self.data.Close,
-            self.data.index,
             self.mid,
             False,
             True,
             False,
         )
 
-        # --- Intraday short-short-term bands ---
-        self.upper_band_intra_shorter = self.I(
-            best_fit_line_range_channel,
-            self.lookback_intra_shorter,
-            self.data.Close,
-            self.data.index,
-            self.mid,
-            True,
-            False,
-            False,
-        )
+        # # --- Intraday short-short-term bands ---
+        # self.upper_band_intra_shorter = self.I(
+        #     best_fit_line_range_channel,
+        #     self.lookback_intra_shorter,
+        #     self.data.Close,
+        #     self.mid,
+        #     True,
+        #     False,
+        #     False,
+        # )
 
-        self.lower_band_intra_shorter = self.I(
-            best_fit_line_range_channel,
-            self.lookback_intra_shorter,
-            self.data.Close,
-            self.data.index,
-            self.mid,
-            False,
-            True,
-            False,
-        )
+        # self.lower_band_intra_shorter = self.I(
+        #     best_fit_line_range_channel,
+        #     self.lookback_intra_shorter,
+        #     self.data.Close,
+        #     self.mid,
+        #     False,
+        #     True,
+        #     False,
+        # )
 
         # --- Long-term macro bands ---
-        self.upper_band_long = self.I(
-            best_fit_line_range_channel,
-            self.lookback_long,
-            self.data.Close,
-            self.data.index,
-            self.mid,
-            True,
-            False,
-            False,
-        )
+        # self.upper_band_long = self.I(
+        #     best_fit_line_range_channel,
+        #     self.lookback_long,
+        #     self.data.Close,
+        #     self.data.index,
+        #     self.mid,
+        #     True,
+        #     False,
+        #     False,
+        # )
 
-        self.lower_band_long = self.I(
-            best_fit_line_range_channel,
-            self.lookback_long,
-            self.data.Close,
-            self.data.index,
-            self.mid,
-            False,
-            True,
-            False,
-        )
+        # self.lower_band_long = self.I(
+        #     best_fit_line_range_channel,
+        #     self.lookback_long,
+        #     self.data.Close,
+        #     self.data.index,
+        #     self.mid,
+        #     False,
+        #     True,
+        #     False,
+        # )
 
     def next(self):
-        pass  # No trading logic yet — you’re just visualizing structure
+        if self.position:
+            if self.slopes[-2] > self.slopes_intra_shorter[-2] and self.slopes[-2] < 0:
+                if self.slopes_intra_shorter[-1] > self.slopes_intra_shorter[-2]:
+                    self.buy()
 
 
 # ------------------ RUN BACKTEST ------------------
 run_backtest(
-    SegmentedRegressionWithFinalFitBands
+    SegmentedRegressionWithFinalFitBands, DATA_FOLDER
 )  # Plug in your strategy + chart the channels
