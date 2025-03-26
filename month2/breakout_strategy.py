@@ -49,7 +49,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             model = LinearRegression()  # Set up linear regression model
             buffer = 5  # Number of NaNs to insert before and after each segment for visual gap
             for i in range(
-                lookback, len(close), lookback
+                0, len(close)
             ):  # Loop through data in chunks of size lookback
                 y = mid[
                     i - lookback : i
@@ -235,12 +235,12 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             self.channel_drawn = True
 
         if not self.position:
-            if self.data.Close[-1] < self.lower[-1]:
+            if self.data.Close[-1] < self.lower[-1] and self.slopes[-1] < 0:
                 self.buy()
                 self.digits = digits_before_decimal(self.data.Close[-1])
                 print(self.digits)
                 if self.digits == 0:
-                    self.stop_loss = self.data.Close[-1] * 0.99
+                    self.stop_loss = self.data.Close[-1] * 0.995
                 if self.digits == 1:
                     self.stop_loss = self.data.Close[-1] * 0.99
                 elif self.digits == 2:
