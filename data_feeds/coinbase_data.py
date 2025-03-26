@@ -15,25 +15,18 @@ import numpy as np
 import datetime
 import os
 from dotenv import load_dotenv
-from math import ceil
 from pathlib import Path
 import requests
 import time
-import hmac
-import hashlib
-import base64
-import json
-import dont_share as d
-from urllib.parse import urlencode
 
 # ====== Moon Dev's Configuration 🌙 ======
 SYMBOL_LIST = [
     "BTC-USD",
     "ETH-USD",
     "SOL-USD",
-    # "AVAX-USD",
-    # "ADA-USD",
-    # "DOGE-USD",
+    "AVAX-USD",
+    "ADA-USD",
+    "DOGE-USD",
     # "MATIC-USD",
     # "LTC-USD",
     # "LINK-USD",
@@ -49,7 +42,7 @@ SYMBOL_LIST = [
     # "AAVE-USD",
     # "UNI-USD",
 ]
-TIMEFRAME = "1h"  # Timeframe (e.g., '1m', '5m', '1h', '6h', '1d')
+TIMEFRAME = "1m"  # Timeframe (e.g., '1m', '5m', '1h', '6h', '1d')
 
 if "m" in TIMEFRAME:
     SAVE_DIR = "/Users/jpmak/JPQuant/data/1m_data"  # Directory to save the data files
@@ -294,8 +287,7 @@ def csvs_of_random_windows(timeframe, num_csv):
         try:
             dataframe = get_historical_data(symbol, timeframe, DATES)
         except Exception as e:
-            print(f"Error cz of: {e}")
-            continue
+            print(f"There was an error cz of {e}")
 
         if dataframe.empty:
             print(f"⚠️ No data returned for {symbol}, skipping.")

@@ -19,6 +19,11 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
     lookback_intra = 100  # Intraday tighter structure (small channel)
     lookback_long = 250  # Macro long-term structure
     lookback_intra_shorter = 20  # Intraday-shorter even tighter structure
+    channel_drawn = False
+    upper = []
+    lower = []
+    stop_loss = 0
+    digits = 0
 
     def init(self):
         self.mid = (
@@ -61,15 +66,6 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                     X * model.coef_[0] + model.intercept_
                 ).flatten()  # Predict fitted line values
 
-                if lookback == self.lookback:
-                    np.append(self.slopes, model.coef_[0])
-                elif lookback == self.lookback_intra:
-                    np.append(self.slopes_intra, model.coef_[0])
-                elif lookback == self.lookback_intra_shorter:
-                    np.append(self.slopes_intra_shorter, model.coef_[0])
-                elif lookback == self.lookback_long:
-                    np.append(self.slopes_long, model.coef_[0])
-
                 residuals = (
                     y_actual - y_fit
                 )  # Difference between actual closes and regression line
@@ -101,7 +97,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                         y_fit + lower_offset
                     )  # Plot bottom of channel (offset is already negative)
 
-            return result  # Return the final array (channel or regression) I
+            return result
 
         # --- Main structure channels ---
         # self.reg_line = self.I(
@@ -199,11 +195,71 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         #     False,
         # )
 
+    def channel(self, lookback, open, close, slopes):
+        # Just use the most recent lookback-sized window
+        open_window = open[-lookback:]
+        close_window = close[-lookback:]
+        mid = (open_window + close_window) / 2
+
+        # Linear regression over that window
+        model = LinearRegression()
+        X = np.arange(lookback).reshape(-1, 1)
+        y = mid
+        model.fit(X, y)
+
+        # Upper and lower bands from regression line
+        y_fit = (X * model.coef_[0] + model.intercept_).flatten()
+        residuals = close_window - y_fit
+        upper = y_fit + max(residuals)
+        lower = y_fit + min(residuals)
+        self.slopes.append(float(model.coef_[0]))
+
+        return upper, lower
+
     def next(self):
-        if self.position:
-            if self.slopes[-2] > self.slopes_intra_shorter[-2] and self.slopes[-2] < 0:
-                if self.slopes_intra_shorter[-1] > self.slopes_intra_shorter[-2]:
-                    self.buy()
+
+        def digits_before_decimal(number):
+            # Convert number to string and split at the decimal point
+            number_str = str(number).split(".")[0]
+
+            # Return the length of the part before the decimal
+            return len(number_str)
+
+        if len(self.data.Close) <= self.lookback:
+            return
+
+        if self.channel_drawn == False:
+            self.upper, self.lower = self.channel(
+                self.lookback, self.data.Open, self.data.Close, self.slopes
+            )
+            self.channel_drawn = True
+
+        if not self.position:
+            if self.data.Close[-1] < self.lower[-1]:
+                self.buy()
+                self.digits = digits_before_decimal(self.data.Close[-1])
+                print(self.digits)
+                if self.digits == 0:
+                    self.stop_loss = self.data.Close[-1] * 0.99
+                if self.digits == 1:
+                    self.stop_loss = self.data.Close[-1] * 0.99
+                elif self.digits == 2:
+                    self.stop_loss = self.data.Close[-1] * 0.98
+                elif self.digits == 3:
+                    self.stop_loss = self.data.Close[-1] * 0.97
+                elif self.digits == 4:
+                    self.stop_loss = self.data.Close[-1] * 0.96
+                elif self.digits == 5:
+                    self.stop_loss = self.data.Close[-1] * 0.95
+
+        elif self.position:
+            if self.data.Close[-1] < self.stop_loss:
+                self.position.close()
+                self.channel_drawn = False
+
+            if self.data.Close[-1] > self.upper[-1]:
+                self.position.close()
+                self.channel_drawn = False
 
 
 # ------------------ RUN BACKTEST ------------------
