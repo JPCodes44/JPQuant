@@ -35,67 +35,100 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         self.slopes_intra_shorter = []
         self.slopes_long = []
 
+        def channel(lookback, open, close, slopes):
+            # Just use the most recent lookback-sized window
+            open_window = open[-lookback:]
+            close_window = close[-lookback:]
+            mid = (open_window + close_window) / 2
+
+            # Linear regression over that window
+            model = LinearRegression()
+            X = np.arange(lookback).reshape(-1, 1)
+            y = mid
+            model.fit(X, y)
+
+            # Upper and lower bands from regression line
+            y_fit = (X * model.coef_[0] + model.intercept_).flatten()
+            residuals = close_window - y_fit
+            upper = y_fit + max(residuals)
+            lower = y_fit + min(residuals)
+            slopes.append(float(model.coef_[0]))
+
+            return upper, lower
+
+        def digits_before_decimal_init(number):
+            # Convert number to string and split at the decimal point
+            number_str = str(number).split(".")[0]
+
+            # Return the length of the part before the decimal
+            return len(number_str)
+
         def best_fit_line_range_channel(
             lookback: int,
             close: np.ndarray,
+            open: np.ndarray,
             mid: np.ndarray,
             is_upper: bool,
             is_lower: bool,
             is_reg: bool,
         ) -> np.ndarray:
-            result = np.full_like(
-                close, np.nan, dtype=np.float64
-            )  # Initialize result array with NaNs
-            model = LinearRegression()  # Set up linear regression model
-            buffer = 5  # Number of NaNs to insert before and after each segment for visual gap
-            for i in range(
-                0, len(close)
-            ):  # Loop through data in chunks of size lookback
-                y = mid[
-                    i - lookback : i
-                ]  # Regression input: midpoint values over current window
-                y_actual = close[
-                    i - lookback : i
-                ]  # Use actual close prices to measure deviation from the line
-                X = np.arange(lookback).reshape(
-                    -1, 1
-                )  # Time axis [0,1,...,lookback-1], reshaped for sklearn
+            position_init = False
+            channel_drawn_init = False
+            upper_init = []
+            lower_init = []
+            slopes_init = []
+            digits_init = 0
+            stop_loss_init = 10000000
+            result = np.full_like(close, np.nan)
+            # for loop to loop thru data like real time
+            for i in range(0, len(close)):
+                # check if the current index is greater than the lookback
+                if i > lookback:
+                    # get the digits needed to calculate stop loss
+                    digits_init = digits_before_decimal_init(close[i])
 
-                model.fit(X, y)  # Fit regression line to midpoint data
-                y_fit = (
-                    X * model.coef_[0] + model.intercept_
-                ).flatten()  # Predict fitted line values
+                    if channel_drawn_init == False:
+                        upper_init, lower_init = channel(
+                            lookback,
+                            open,
+                            close,
+                            slopes_init,
+                        )
 
-                residuals = (
-                    y_actual - y_fit
-                )  # Difference between actual closes and regression line
-                upper_offset = np.max(
-                    residuals
-                )  # Max residual = how far above the line the price spiked
-                lower_offset = np.min(
-                    residuals
-                )  # Min residual = how far below the line the price dipped
+                        if is_upper:
+                            result[i - lookback : i] = upper_init
+                        elif is_lower:
+                            result[i - lookback : i] = lower_init
 
-                # Insert NaNs before the segment to break up plot visually
-                for j in range(buffer):
-                    if i - lookback - j >= 0:
-                        result[i - lookback - j] = np.nan
-                    if i + j < len(
-                        close
-                    ):  # Insert NaNs after the segment too (visual clarity)
-                        result[i + j] = np.nan
+                        channel_drawn_init = True
 
-                # Choose which line to plot based on flags
-                if is_reg:
-                    result[i - lookback : i] = y_fit  # Plot main regression line
-                elif is_upper:
-                    result[i - lookback : i] = (
-                        y_fit + upper_offset
-                    )  # Plot top of channel
-                elif is_lower:
-                    result[i - lookback : i] = (
-                        y_fit + lower_offset
-                    )  # Plot bottom of channel (offset is already negative)
+                    if not position_init:
+                        if close[i] < lower_init[-1] and slopes_init[-1] < 0:
+                            position_init = True
+                            digits_init = digits_before_decimal_init(self.data.Close[i])
+
+                            print(self.digits)
+                            if digits_init == 0:
+                                stop_loss_init = close[i] * 0.995
+                            elif digits_init == 1:
+                                stop_loss_init = close[i] * 0.99
+                            elif digits_init == 2:
+                                stop_loss_init = close[i] * 0.98
+                            elif digits_init == 3:
+                                stop_loss_init = close[i] * 0.97
+                            elif digits_init == 4:
+                                stop_loss_init = close[i] * 0.96
+                            elif digits_init == 5:
+                                stop_loss_init = close[i] * 0.95
+
+                    elif position_init:
+                        if close[i] < stop_loss_init:
+                            position_init = False
+                            channel_drawn_init = False
+
+                        if close[i] > upper_init[-1]:
+                            position_init = False
+                            channel_drawn_init = False
 
             return result
 
@@ -114,6 +147,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             best_fit_line_range_channel,
             self.lookback,
             self.data.Close,
+            self.data.Open,
             self.mid,
             True,  # <- this is upper band
             False,
@@ -124,6 +158,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             best_fit_line_range_channel,
             self.lookback,
             self.data.Close,
+            self.data.Open,
             self.mid,
             False,
             True,  # <- this is lower band
@@ -131,25 +166,27 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         )
 
         # --- Intraday short-term bands ---
-        self.upper_band_intra = self.I(
-            best_fit_line_range_channel,
-            self.lookback_intra,
-            self.data.Close,
-            self.mid,
-            True,
-            False,
-            False,
-        )
+        # self.upper_band_intra = self.I(
+        #     best_fit_line_range_channel,
+        #     self.lookback_intra,
+        #     self.data.Close,
+        #     self.data.Open,
+        #     self.mid,
+        #     True,
+        #     False,
+        #     False,
+        # )
 
-        self.lower_band_intra = self.I(
-            best_fit_line_range_channel,
-            self.lookback_intra,
-            self.data.Close,
-            self.mid,
-            False,
-            True,
-            False,
-        )
+        # self.lower_band_intra = self.I(
+        #     best_fit_line_range_channel,
+        #     self.lookback_intra,
+        #     self.data.Close,
+        #     self.data.Open,
+        #     self.mid,
+        #     False,
+        #     True,
+        #     False,
+        # )
 
         # # --- Intraday short-short-term bands ---
         # self.upper_band_intra_shorter = self.I(
