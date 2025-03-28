@@ -81,56 +81,76 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             stop_loss_init = 10000000
             result = np.full_like(close, np.nan)
             # for loop to loop thru data like real time
+            print(f"Total length of close: {len(close)}")
+            print(f"Lookback: {lookback}")
+
             for i in range(0, len(close)):
-                # check if the current index is greater than the lookback
-                if i > lookback:
-                    # get the digits needed to calculate stop loss
-                    digits_init = digits_before_decimal_init(close[i])
+                # Check if there are enough previous data points for the lookback window
+                if i >= lookback:
 
-                    if channel_drawn_init == False:
-                        upper_init, lower_init = channel(
-                            lookback,
-                            open,
-                            close,
-                            slopes_init,
-                        )
+                    # Calculate channel for the current window
+                    upper_init, lower_init = channel(
+                        lookback,
+                        open[:i],  # Use only data up to current index
+                        close[:i],
+                        slopes_init,
+                    )
 
-                        if is_upper:
-                            result[i - lookback : i] = upper_init
-                        elif is_lower:
-                            result[i - lookback : i] = lower_init
-
-                        channel_drawn_init = True
-
-                    if not position_init:
-                        if close[i] < lower_init[-1] and slopes_init[-1] < 0:
-                            position_init = True
-                            digits_init = digits_before_decimal_init(self.data.Close[i])
-
-                            print(self.digits)
-                            if digits_init == 0:
-                                stop_loss_init = close[i] * 0.995
-                            elif digits_init == 1:
-                                stop_loss_init = close[i] * 0.99
-                            elif digits_init == 2:
-                                stop_loss_init = close[i] * 0.98
-                            elif digits_init == 3:
-                                stop_loss_init = close[i] * 0.97
-                            elif digits_init == 4:
-                                stop_loss_init = close[i] * 0.96
-                            elif digits_init == 5:
-                                stop_loss_init = close[i] * 0.95
-
-                    elif position_init:
-                        if close[i] < stop_loss_init:
-                            position_init = False
-                            channel_drawn_init = False
-
-                        if close[i] > upper_init[-1]:
-                            position_init = False
-                            channel_drawn_init = False
+                    # Update result based on flags
+                    if is_upper:
+                        result[i - lookback : i] = upper_init
+                    elif is_lower:
+                        result[i - lookback : i] = lower_init
 
             return result
+
+            # # get the digits needed to calculate stop loss
+            # digits_init = digits_before_decimal_init(close[i])
+
+            # if channel_drawn_init == False:
+            #     upper_init, lower_init = channel(
+            #         lookback,
+            #         open,
+            #         close,
+            #         slopes_init,
+            #     )
+
+            #     if is_upper:
+            #         result[i - lookback : i] = upper_init
+            #     elif is_lower:
+            #         result[i - lookback : i] = lower_init
+
+            #     channel_drawn_init = True
+
+            # if not position_init:
+            #     if close[i] < lower_init[-1] and slopes_init[-1] < 0:
+            #         position_init = True
+            #         digits_init = digits_before_decimal_init(self.data.Close[i])
+
+            #         print(self.digits)
+            #         if digits_init == 0:
+            #             stop_loss_init = close[i] * 0.995
+            #         elif digits_init == 1:
+            #             stop_loss_init = close[i] * 0.99
+            #         elif digits_init == 2:
+            #             stop_loss_init = close[i] * 0.98
+            #         elif digits_init == 3:
+            #             stop_loss_init = close[i] * 0.97
+            #         elif digits_init == 4:
+            #             stop_loss_init = close[i] * 0.96
+            #         elif digits_init == 5:
+            #             stop_loss_init = close[i] * 0.95
+
+            # elif position_init:
+            #     if close[i] < stop_loss_init:
+            #         position_init = False
+            #         channel_drawn_init = False
+
+            #     if close[i] > upper_init[-1]:
+            #         position_init = False
+            #         channel_drawn_init = False
+
+            # return result
 
         # --- Main structure channels ---
         # self.reg_line = self.I(
