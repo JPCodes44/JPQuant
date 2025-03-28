@@ -67,36 +67,26 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             lookback: int,
             close: np.ndarray,
             open: np.ndarray,
-            mid: np.ndarray,
             is_upper: bool,
             is_lower: bool,
-            is_reg: bool,
         ) -> np.ndarray:
-            position_init = False
-            channel_drawn_init = False
             upper_init = []
             lower_init = []
             slopes_init = []
-            digits_init = 0
-            stop_loss_init = 10000000
             result = np.full_like(close, np.nan)
-            # for loop to loop thru data like real time
-            print(f"Total length of close: {len(close)}")
-            print(f"Lookback: {lookback}")
 
             for i in range(0, len(close)):
                 # Check if there are enough previous data points for the lookback window
                 if i >= lookback:
 
-                    # Calculate channel for the current window
                     upper_init, lower_init = channel(
                         lookback,
-                        open[:i],  # Use only data up to current index
+                        open[:i],
                         close[:i],
                         slopes_init,
                     )
 
-                    # Update result based on flags
+                    # Draw upper or lower band based on flags
                     if is_upper:
                         result[i - lookback : i] = upper_init
                     elif is_lower:
@@ -104,73 +94,12 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
             return result
 
-            # # get the digits needed to calculate stop loss
-            # digits_init = digits_before_decimal_init(close[i])
-
-            # if channel_drawn_init == False:
-            #     upper_init, lower_init = channel(
-            #         lookback,
-            #         open,
-            #         close,
-            #         slopes_init,
-            #     )
-
-            #     if is_upper:
-            #         result[i - lookback : i] = upper_init
-            #     elif is_lower:
-            #         result[i - lookback : i] = lower_init
-
-            #     channel_drawn_init = True
-
-            # if not position_init:
-            #     if close[i] < lower_init[-1] and slopes_init[-1] < 0:
-            #         position_init = True
-            #         digits_init = digits_before_decimal_init(self.data.Close[i])
-
-            #         print(self.digits)
-            #         if digits_init == 0:
-            #             stop_loss_init = close[i] * 0.995
-            #         elif digits_init == 1:
-            #             stop_loss_init = close[i] * 0.99
-            #         elif digits_init == 2:
-            #             stop_loss_init = close[i] * 0.98
-            #         elif digits_init == 3:
-            #             stop_loss_init = close[i] * 0.97
-            #         elif digits_init == 4:
-            #             stop_loss_init = close[i] * 0.96
-            #         elif digits_init == 5:
-            #             stop_loss_init = close[i] * 0.95
-
-            # elif position_init:
-            #     if close[i] < stop_loss_init:
-            #         position_init = False
-            #         channel_drawn_init = False
-
-            #     if close[i] > upper_init[-1]:
-            #         position_init = False
-            #         channel_drawn_init = False
-
-            # return result
-
-        # --- Main structure channels ---
-        # self.reg_line = self.I(
-        #     best_fit_line_range_channel,
-        #     self.lookback,
-        #     self.data.Close,
-        #     self.mid,
-        #     False,
-        #     False,
-        #     True,  # <- this is the regression center line
-        # )
-
         self.upper_band = self.I(
             best_fit_line_range_channel,
             self.lookback,
             self.data.Close,
             self.data.Open,
-            self.mid,
             True,  # <- this is upper band
-            False,
             False,
         )
 
@@ -179,43 +108,36 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             self.lookback,
             self.data.Close,
             self.data.Open,
-            self.mid,
             False,
             True,  # <- this is lower band
-            False,
         )
 
         # --- Intraday short-term bands ---
-        # self.upper_band_intra = self.I(
-        #     best_fit_line_range_channel,
-        #     self.lookback_intra,
-        #     self.data.Close,
-        #     self.data.Open,
-        #     self.mid,
-        #     True,
-        #     False,
-        #     False,
-        # )
+        self.upper_band_intra = self.I(
+            best_fit_line_range_channel,
+            self.lookback_intra,
+            self.data.Close,
+            self.data.Open,
+            True,
+            False,
+        )
 
-        # self.lower_band_intra = self.I(
-        #     best_fit_line_range_channel,
-        #     self.lookback_intra,
-        #     self.data.Close,
-        #     self.data.Open,
-        #     self.mid,
-        #     False,
-        #     True,
-        #     False,
-        # )
+        self.lower_band_intra = self.I(
+            best_fit_line_range_channel,
+            self.lookback_intra,
+            self.data.Close,
+            self.data.Open,
+            False,
+            True,
+        )
 
-        # # --- Intraday short-short-term bands ---
+        # --- Intraday short-short-term bands ---
         # self.upper_band_intra_shorter = self.I(
         #     best_fit_line_range_channel,
         #     self.lookback_intra_shorter,
         #     self.data.Close,
-        #     self.mid,
+        #     self.data.Open,
         #     True,
-        #     False,
         #     False,
         # )
 
@@ -223,21 +145,18 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         #     best_fit_line_range_channel,
         #     self.lookback_intra_shorter,
         #     self.data.Close,
-        #     self.mid,
+        #     self.data.Open,
         #     False,
         #     True,
-        #     False,
         # )
 
-        # --- Long-term macro bands ---
+        # # --- Long-term macro bands ---
         # self.upper_band_long = self.I(
         #     best_fit_line_range_channel,
         #     self.lookback_long,
         #     self.data.Close,
-        #     self.data.index,
-        #     self.mid,
+        #     self.data.Open,
         #     True,
-        #     False,
         #     False,
         # )
 
@@ -245,11 +164,9 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         #     best_fit_line_range_channel,
         #     self.lookback_long,
         #     self.data.Close,
-        #     self.data.index,
-        #     self.mid,
+        #     self.data.Open,
         #     False,
         #     True,
-        #     False,
         # )
 
     def channel(self, lookback, open, close, slopes):
