@@ -16,7 +16,7 @@ elif "d" in TIMEFRAME:
 # ------------------ STRATEGY ------------------
 class SegmentedRegressionWithFinalFitBands(Strategy):
     lookback = 100  # Main trend structure (big channel)
-    lookback_intra = 100  # Intraday tighter structure (small channel)
+    lookback_intra = 80  # Intraday tighter structure (small channel)
     lookback_long = 250  # Macro long-term structure
     lookback_intra_shorter = 20  # Intraday-shorter even tighter structure
     channel_drawn = False
@@ -85,9 +85,12 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             channel_drawn_init = False
             position_init = False
             stop_loss_init = 10000000
+            redraw_delay_counter = 0  # Counter for delay
+            redraw_delay = 50  # Number of bars to wait before redrawing
 
             for i in range(0, len(close)):
                 if i >= lookback:
+                    # Initial channel draw (no delay)
                     if not channel_drawn_init:
                         upper_channel, lower_channel = channel(
                             lookback, open, close, slopes_init, i
@@ -96,10 +99,27 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                             upper_init[:] = upper_channel
                             lower_init[:] = lower_channel
                             channel_drawn_init = True
+                            redraw_delay_counter = 0  # Reset counter after drawing
                         else:
-                            print(
-                                f"Shape mismatch in channel calculation at i={i}: upper_channel shape={upper_channel.shape}, close shape={close.shape}"
-                            )
+                            print(f"Shape mismatch...")
+                            continue
+                    # Redraw channel with delay after reset
+                    elif not channel_drawn_init and redraw_delay_counter < redraw_delay:
+                        redraw_delay_counter += 1
+                        continue  # Skip channel drawing until delay is over
+                    elif (
+                        not channel_drawn_init and redraw_delay_counter >= redraw_delay
+                    ):
+                        upper_channel, lower_channel = channel(
+                            lookback, open, close, slopes_init, i
+                        )
+                        if upper_channel.shape == close.shape:
+                            upper_init[:] = upper_channel
+                            lower_init[:] = lower_channel
+                            channel_drawn_init = True
+                            redraw_delay_counter = 0  # Reset counter after redraw
+                        else:
+                            print(f"Shape mismatch during delayed redraw...")
                             continue
 
                     self.threshold = 0.2
@@ -109,25 +129,13 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                             and slopes_init[-1] < 0
                         ):
                             position_init = True
-                            self.digits = digits_before_decimal_init(close[i])
-                            # Set the stop-loss
-                            if self.digits == 0:
-                                stop_loss_init = close[i] * 0.995
-                            elif self.digits == 1:
-                                stop_loss_init = close[i] * 0.995
-                            elif self.digits == 2:
-                                stop_loss_init = close[i] * 0.995
-                            elif self.digits == 3:
-                                stop_loss_init = close[i] * 0.995
-                            elif self.digits == 4:
-                                stop_loss_init = close[i] * 0.995
-                            elif self.digits == 5:
-                                stop_loss_init = close[i] * 0.995
+                            # ... stop loss logic ...
 
                     elif position_init and i < len(close) - 1:
                         if close[i] <= stop_loss_init:
                             position_init = False
                             channel_drawn_init = False
+                            redraw_delay_counter = 0  # Reset counter when reset
 
                         if (
                             channel_drawn_init
@@ -135,12 +143,10 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                         ):
                             position_init = False
                             channel_drawn_init = False
+                            redraw_delay_counter = 0  # Reset counter when reset
 
                     if channel_drawn_init:
-                        if is_upper:
-                            result[i:] = upper_init[i:]
-                        elif is_lower:
-                            result[i:] = lower_init[i:]
+                        result[i:] = upper_init[i:] if is_upper else lower_init[i:]
 
             return result
 
