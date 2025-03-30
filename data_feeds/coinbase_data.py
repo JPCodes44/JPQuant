@@ -21,16 +21,16 @@ import time
 
 # ====== Moon Dev's Configuration 🌙 ======
 SYMBOL_LIST = [
-    "BTC-USD",
-    "ETH-USD",
-    "SOL-USD",
+    # "BTC-USD",
+    # "ETH-USD",
+    # "SOL-USD",
     "AVAX-USD",
-    "ADA-USD",
+    # "ADA-USD",
     "DOGE-USD",
     # "MATIC-USD",
-    # "LTC-USD",
-    # "LINK-USD",
-    # "BCH-USD",
+    "LTC-USD",
+    "LINK-USD",
+    "BCH-USD",
     # "ATOM-USD",
     # "XLM-USD",
     # "ARB-USD",
@@ -54,7 +54,7 @@ elif "d" in TIMEFRAME:
 # DATE_RANGE = pd.date_range(start="2019-03-06", end="2025-03-07") 1d timeframe
 
 
-NUM_CSV = 10
+NUM_CSV = 20
 
 # Create save directory if it doesn't exist
 os.makedirs(SAVE_DIR, exist_ok=True)
