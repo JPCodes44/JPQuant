@@ -36,41 +36,32 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         self.slopes_long = []
 
         def channel(lookback, open_prices, close_prices, slopes, i):
-            # Ensure lookback is within bounds
             if i < lookback:
                 return np.full_like(close_prices, np.nan), np.full_like(
                     close_prices, np.nan
                 )
 
-            # Use the most recent lookback-sized window
             open_window = open_prices[i - lookback : i]
             close_window = close_prices[i - lookback : i]
             mid = (open_window + close_window) / 2
 
-            # Linear regression over that window
             model = LinearRegression()
-            X = np.arange(lookback).reshape(-1, 1)  # Time axis [0,1,...,lookback-1]
+            X = np.arange(lookback).reshape(-1, 1)
             y = mid
             model.fit(X, y)
 
-            # Get the slope and intercept
             slope = model.coef_[0]
             intercept = model.intercept_
             slopes.append(float(slope))
 
-            # Create a time axis for the entire 'close' price array
             X_full = np.arange(len(close_prices)).reshape(-1, 1)
-
-            # Predict the midpoint values for the entire time series
             y_fit_full = (X_full * slope + intercept).flatten()
 
-            # Calculate residuals based on the lookback window
             y_fit_lookback = (
                 np.arange(lookback).reshape(-1, 1) * slope + intercept
             ).flatten()
             residuals = close_window - y_fit_lookback
 
-            # Calculate the upper and lower bands using the max/min residuals from the lookback window
             upper = y_fit_full + np.max(residuals)
             lower = y_fit_full + np.min(residuals)
 
@@ -95,15 +86,13 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             position_init = False
             stop_loss_init = 10000000
 
-            for i in range(0, len(close)):  # Changed loop end
+            for i in range(0, len(close)):
                 if i >= lookback:
                     if not channel_drawn_init:
                         upper_channel, lower_channel = channel(
                             lookback, open, close, slopes_init, i
                         )
-                        if (
-                            upper_channel.shape == close.shape
-                        ):  # Ensure shapes match before assignment
+                        if upper_channel.shape == close.shape:
                             upper_init[:] = upper_channel
                             lower_init[:] = lower_channel
                             channel_drawn_init = True
@@ -111,7 +100,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                             print(
                                 f"Shape mismatch in channel calculation at i={i}: upper_channel shape={upper_channel.shape}, close shape={close.shape}"
                             )
-                            continue  # Skip to the next iteration if shapes don't match
+                            continue
 
                     self.threshold = 0.2
                     if not position_init and channel_drawn_init and i < len(close) - 1:
@@ -125,15 +114,15 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                             if self.digits == 0:
                                 stop_loss_init = close[i] * 0.995
                             elif self.digits == 1:
-                                stop_loss_init = close[-1] * 0.995
+                                stop_loss_init = close[i] * 0.995
                             elif self.digits == 2:
-                                stop_loss_init = close[-1] * 0.995
+                                stop_loss_init = close[i] * 0.995
                             elif self.digits == 3:
-                                stop_loss_init = close[-1] * 0.995
+                                stop_loss_init = close[i] * 0.995
                             elif self.digits == 4:
-                                stop_loss_init = close[-1] * 0.995
+                                stop_loss_init = close[i] * 0.995
                             elif self.digits == 5:
-                                stop_loss_init = close[-1] * 0.995
+                                stop_loss_init = close[i] * 0.995
 
                     elif position_init and i < len(close) - 1:
                         if close[i] <= stop_loss_init:
@@ -149,9 +138,9 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
                     if channel_drawn_init:
                         if is_upper:
-                            result[:] = upper_init
+                            result[i:] = upper_init[i:]
                         elif is_lower:
-                            result[:] = lower_init
+                            result[i:] = lower_init[i:]
 
             return result
 
