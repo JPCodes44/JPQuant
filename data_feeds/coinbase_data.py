@@ -21,11 +21,11 @@ import time
 
 # ====== Moon Dev's Configuration 🌙 ======
 SYMBOL_LIST = [
-    # "BTC-USD",
-    # "ETH-USD",
-    # "SOL-USD",
+    "BTC-USD",
+    "ETH-USD",
+    "SOL-USD",
     "AVAX-USD",
-    # "ADA-USD",
+    "ADA-USD",
     "DOGE-USD",
     # "MATIC-USD",
     "LTC-USD",
@@ -33,7 +33,7 @@ SYMBOL_LIST = [
     "BCH-USD",
     # "ATOM-USD",
     # "XLM-USD",
-    # "ARB-USD",
+    "ARB-USD",
     # "APT-USD",
     # "OP-USD",
     # "SUI-USD",
