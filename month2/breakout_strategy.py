@@ -87,6 +87,8 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             channel_drawn_init = False
             upper_init = []
             lower_init = []
+            upper_result = np.full_like(close, np.nan)
+            lower_result = np.full_like(close, np.nan)
             slopes_init = []
             digits_init = 0
             stop_loss_init = 10000000
@@ -99,20 +101,61 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                 # Check if there are enough previous data points for the lookback window
                 if i >= lookback:
 
-                    # Calculate channel for the current window
-                    upper_init, lower_init = channel(
-                        lookback,
-                        open,  # Use only data up to current index
-                        close,
-                        slopes_init,
-                        i,
-                    )
+                    # =========== GETTING THE CHANNEL ==============
 
-                    # Update result based on flags
-                    if is_upper:
-                        result[i - lookback :] = upper_init
-                    elif is_lower:
-                        result[i - lookback :] = lower_init
+                    # Calculate channel for the current window
+                    if channel_drawn_init == False:
+                        upper_init, lower_init = channel(
+                            lookback,
+                            open,  # Use only data up to current index
+                            close,
+                            slopes_init,
+                            i,
+                        )
+
+                        # Update result based on flags
+                        upper_result[i - lookback :] = upper_init
+                        lower_result[i - lookback :] = lower_init
+
+                        if is_upper:
+                            result[i - lookback :] = upper_init
+                        elif is_lower:
+                            result[i - lookback :] = lower_init
+
+                    # =========== DONE GETTING THE CHANNEL ==============
+
+                    # +++++++++++ CHANNEL DRAWN LOGIC +++++++++++++
+
+                    if position_init == False:
+                        if close[i] < lower_result[i] and slopes_init[-1] < 0:
+                            print(close[i])
+                            print(lower_result[i])
+                            position_init = True
+                            channel_drawn_init = True
+                            digits_init = digits_before_decimal_init(close[i])
+                            if digits_init == 0:
+                                stop_loss_init = close[i] * 0.995
+                            elif digits_init == 1:
+                                stop_loss_init = close[i] * 0.99
+                            elif digits_init == 2:
+                                stop_loss_init = close[i] * 0.98
+                            elif digits_init == 3:
+                                stop_loss_init = close[i] * 0.97
+                            elif digits_init == 4:
+                                stop_loss_init = close[i] * 0.96
+                            elif digits_init == 5:
+                                stop_loss_init = close[i] * 0.95
+
+                    # ++++++++++ CHANNEL DRAWN LOGIC ++++++++++++++
+
+                    # elif position_init:
+                    #     if close[i] < stop_loss_init:
+                    #         position_init = False
+                    #         channel_drawn_init = False
+
+                    #     if close[i] > upper_result[i]:
+                    #         position_init = False
+                    #         channel_drawn_init = False
 
             return result
 

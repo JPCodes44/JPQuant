@@ -36,9 +36,9 @@ SYMBOL_LIST = [
     "ARB-USD",
     # "APT-USD",
     # "OP-USD",
-    # "SUI-USD",
+    "SUI-USD",
     # "RNDR-USD",
-    # "ICP-USD",
+    "ICP-USD",
     # "AAVE-USD",
     # "UNI-USD",
 ]
