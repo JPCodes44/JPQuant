@@ -24,7 +24,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
     lower = []
     stop_loss = 0
     digits = 0
-    index = 0
+    index_next = 0
     residual = 0
     coef = 0
     intercept = 0
@@ -250,11 +250,15 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         #     False,
         # )
 
-    def draw_extension(self, index, upper, lower, close, model, residual):
+    def draw_extension(self, index_next, upper, lower, model, residual):
+        print(f"Type of index_next: {type(index_next)}")
+        print(f"Value of index_next: {index_next}")
         # Extended lines using the previous regression to the end of result
-        X_EXTEND = np.arange(len(close), index).reshape(-1, 1)  # Reshape for prediction
+        X_EXTEND = np.arange(index_next - 1, index_next).reshape(
+            -1, 1
+        )  # Reshape for prediction
         y_fit_extended = model.predict(X_EXTEND).flatten()
-        # use the same offset from the regular fit line as b4 (channel)
+        # use the same offset from the regular fit line as before (channel)
         upper_extended = y_fit_extended + max(residual)
         lower_extended = y_fit_extended + min(residual)
 
@@ -286,20 +290,19 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         return upper, lower, model, residuals, model.coef_, model.intercept_
 
     def next(self):
+        if not hasattr(self, "index_next"):  # Initialize index_next if it doesn't exist
+            self.index_next = self.lookback  # Start index_next after initial lookback
 
-        index += 1
+        self.index_next += 1
 
         def digits_before_decimal(number):
-            # Convert number to string and split at the decimal point
             number_str = str(number).split(".")[0]
-
-            # Return the length of the part before the decimal
             return len(number_str)
 
         if len(self.data.Close) <= self.lookback:
             return
 
-        if self.channel_drawn == False:
+        if not self.channel_drawn:
             (
                 self.upper,
                 self.lower,
@@ -307,20 +310,20 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                 self.residual,
                 self.coef,
                 self.intercept,
-            ) = self.channel(
-                self.lookback, self.data.Open, self.data.Close, self.slopes
-            )
-
+            ) = self.channel(self.lookback, self.data.Open, self.data.Close)
             self.channel_drawn = True
         else:
-            self.upper, self.lower = self.draw_extension(
-                self.index,
-                self.upper,
-                self.lower,
-                self.data.Close,
+            upper_extended, lower_extended = self.draw_extension(
+                self.index_next,  # Use the current index_next for extension
+                self.upper[
+                    -1:
+                ],  # Pass only the last point for context (though not strictly needed in current draw_extension)
+                self.lower[-1:],  # Pass only the last point for context
                 self.model,
                 self.residual,
             )
+            self.upper = np.append(self.upper, upper_extended)
+            self.lower = np.append(self.lower, lower_extended)
 
         if not self.position:
             if self.data.Close[-1] < self.lower[-1] and self.slopes[-1] < 0:
