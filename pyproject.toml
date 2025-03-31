@@ -1,0 +1,13 @@
+[project]
+name = "my-mcp-project"
+version = "0.1.0"
+dependencies = [
+    "backtesting>=0.6.4",
+    "ccxt>=4.4.71",
+    "mcp[cli]>=1.6.0",
+    "numpy>=2.2.4",
+    "schedule>=1.2.2",
+    "scikit-learn>=1.6.1",
+    "statsmodels>=0.14.4",
+    "ta-lib",
+]

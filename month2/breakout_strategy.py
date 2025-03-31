@@ -24,6 +24,11 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
     lower = []
     stop_loss = 0
     digits = 0
+    index = 0
+    residual = 0
+    coef = 0
+    intercept = 0
+    model = None
 
     def init(self):
         self.mid = (
@@ -92,10 +97,9 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             slopes_init = []
             digits_init = 0
             stop_loss_init = 10000000
+
             result = np.full_like(close, np.nan)
             # for loop to loop thru data like real time
-            print(f"Total length of close: {len(close)}")
-            print(f"Lookback: {lookback}")
 
             for i in range(0, len(close)):
                 # Check if there are enough previous data points for the lookback window
@@ -128,8 +132,6 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
                     if position_init == False:
                         if close[i] < lower_result[i] and slopes_init[-1] < 0:
-                            print(close[i])
-                            print(lower_result[i])
                             position_init = True
                             channel_drawn_init = True
                             digits_init = digits_before_decimal_init(close[i])
@@ -248,7 +250,21 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         #     False,
         # )
 
-    def channel(self, lookback, open, close, slopes):
+    def draw_extension(self, index, upper, lower, close, model, residual):
+        # Extended lines using the previous regression to the end of result
+        X_EXTEND = np.arange(len(close), index).reshape(-1, 1)  # Reshape for prediction
+        y_fit_extended = model.predict(X_EXTEND).flatten()
+        # use the same offset from the regular fit line as b4 (channel)
+        upper_extended = y_fit_extended + max(residual)
+        lower_extended = y_fit_extended + min(residual)
+
+        # concatenate!
+        upper = np.concatenate((upper, upper_extended))
+        lower = np.concatenate((lower, lower_extended))
+
+        return upper, lower
+
+    def channel(self, lookback, open, close):
         # Just use the most recent lookback-sized window
         open_window = open[-lookback:]
         close_window = close[-lookback:]
@@ -267,9 +283,11 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         lower = y_fit + min(residuals)
         self.slopes.append(float(model.coef_[0]))
 
-        return upper, lower
+        return upper, lower, model, residuals, model.coef_, model.intercept_
 
     def next(self):
+
+        index += 1
 
         def digits_before_decimal(number):
             # Convert number to string and split at the decimal point
@@ -282,16 +300,32 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             return
 
         if self.channel_drawn == False:
-            self.upper, self.lower = self.channel(
+            (
+                self.upper,
+                self.lower,
+                self.model,
+                self.residual,
+                self.coef,
+                self.intercept,
+            ) = self.channel(
                 self.lookback, self.data.Open, self.data.Close, self.slopes
             )
+
             self.channel_drawn = True
+        else:
+            self.upper, self.lower = self.draw_extension(
+                self.index,
+                self.upper,
+                self.lower,
+                self.data.Close,
+                self.model,
+                self.residual,
+            )
 
         if not self.position:
             if self.data.Close[-1] < self.lower[-1] and self.slopes[-1] < 0:
                 self.buy()
                 self.digits = digits_before_decimal(self.data.Close[-1])
-                print(self.digits)
                 if self.digits == 0:
                     self.stop_loss = self.data.Close[-1] * 0.995
                 if self.digits == 1:
