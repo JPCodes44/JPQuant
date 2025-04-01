@@ -40,7 +40,27 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         self.slopes_intra_shorter = []
         self.slopes_long = []
 
-        def channel(lookback, open, close, slopes, i):
+        def draw_extension_init(
+            i,
+            upper,
+            lower,
+            model,
+            residual,
+        ):
+
+            # Extended lines using the previous regression to the end of result
+            X_EXTEND = np.arange(i - 1, i).reshape(-1, 1)  # Reshape for prediction
+            y_fit_extended = model.predict(X_EXTEND).flatten()
+            # use the same offset from the regular fit line as before (channel)
+            upper_extended = y_fit_extended + max(residual)
+            lower_extended = y_fit_extended + min(residual)
+
+            upper = np.append(upper, upper_extended)
+            lower = np.append(lower, lower_extended)
+
+            return upper, lower
+
+        def channel_init(lookback, open, close, slopes, i):
             # Just use the most recent lookback-sized window
             open_window = open[i - lookback : i]
             close_window = close[i - lookback : i]
@@ -55,22 +75,16 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             # Upper and lower bands from regression line
             y_fit = (X * model.coef_[0] + model.intercept_).flatten()
             residuals = close_window - y_fit
-            upper_lookback = y_fit + max(residuals)
-            lower_lookback = y_fit + min(residuals)
+            upper = y_fit + max(residuals)
+            lower = y_fit + min(residuals)
             slopes.append(float(model.coef_[0]))
 
-            # Extended lines using the previous regression to the end of result
-            X_EXTEND = np.arange(i, len(close)).reshape(-1, 1)  # Reshape for prediction
-            y_fit_extended = model.predict(X_EXTEND).flatten()
-            # use the same offset from the regular fit line as b4 (channel)
-            upper_extended = y_fit_extended + max(residuals)
-            lower_extended = y_fit_extended + min(residuals)
-
-            # concatenate!
-            upper = np.concatenate((upper_lookback, upper_extended))
-            lower = np.concatenate((lower_lookback, lower_extended))
-
-            return upper, lower
+            return (
+                upper,
+                lower,
+                model,
+                residuals,
+            )
 
         def digits_before_decimal_init(number):
             # Convert number to string and split at the decimal point
@@ -92,11 +106,18 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             channel_drawn_init = False
             upper_init = []
             lower_init = []
+            upper_init_extended = []
+            lower_init_extended = []
             upper_result = np.full_like(close, np.nan)
             lower_result = np.full_like(close, np.nan)
             slopes_init = []
             digits_init = 0
             stop_loss_init = 10000000
+            model_init = 0
+            residual_init = 0
+            coef_init = 0
+            intercept_init = 0
+            start = True
 
             result = np.full_like(close, np.nan)
             # for loop to loop thru data like real time
@@ -109,7 +130,12 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
                     # Calculate channel for the current window
                     if channel_drawn_init == False:
-                        upper_init, lower_init = channel(
+                        (
+                            upper_init,
+                            lower_init,
+                            model_init,
+                            residual_init,
+                        ) = channel_init(
                             lookback,
                             open,  # Use only data up to current index
                             close,
@@ -117,14 +143,30 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                             i,
                         )
 
-                        # Update result based on flags
-                        upper_result[i - lookback :] = upper_init
-                        lower_result[i - lookback :] = lower_init
+                        if is_upper:
+                            result[i - lookback : i] = upper_init
+                        elif is_lower:
+                            result[i - lookback : i] = lower_init
+
+                        channel_drawn_init = True
+
+                    else:
+                        print("nigger")
+                        upper_init_extended, lower_init_extended = draw_extension_init(
+                            i, upper_init[i:], lower_init[i:], model_init, residual_init
+                        )
+
+                        upper_init = np.append(upper_init, upper_init_extended)
+                        lower_init = np.append(lower_init, lower_init_extended)
+
+                        # # Update result based on flags
+                        # upper_result[i - lookback : i] = upper_init
+                        # lower_result[i - lookback : i] = lower_init
 
                         if is_upper:
-                            result[i - lookback :] = upper_init
+                            result[i] = upper_init_extended
                         elif is_lower:
-                            result[i - lookback :] = lower_init
+                            result[i] = lower_init_extended
 
                     # =========== DONE GETTING THE CHANNEL ==============
 
@@ -150,14 +192,14 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
                     # ++++++++++ CHANNEL DRAWN LOGIC ++++++++++++++
 
-                    # elif position_init:
-                    #     if close[i] < stop_loss_init:
-                    #         position_init = False
-                    #         channel_drawn_init = False
+                    elif position_init:
+                        if close[i] < stop_loss_init:
+                            position_init = False
+                            channel_drawn_init = False
 
-                    #     if close[i] > upper_result[i]:
-                    #         position_init = False
-                    #         channel_drawn_init = False
+                        if close[i] > upper_result[i]:
+                            position_init = False
+                            channel_drawn_init = False
 
             return result
 
@@ -251,8 +293,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         # )
 
     def draw_extension(self, index_next, upper, lower, model, residual):
-        print(f"Type of index_next: {type(index_next)}")
-        print(f"Value of index_next: {index_next}")
+
         # Extended lines using the previous regression to the end of result
         X_EXTEND = np.arange(index_next - 1, index_next).reshape(
             -1, 1
@@ -287,7 +328,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         lower = y_fit + min(residuals)
         self.slopes.append(float(model.coef_[0]))
 
-        return upper, lower, model, residuals, model.coef_, model.intercept_
+        return upper, lower, model, residuals
 
     def next(self):
         if not hasattr(self, "index_next"):  # Initialize index_next if it doesn't exist
@@ -303,14 +344,9 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             return
 
         if not self.channel_drawn:
-            (
-                self.upper,
-                self.lower,
-                self.model,
-                self.residual,
-                self.coef,
-                self.intercept,
-            ) = self.channel(self.lookback, self.data.Open, self.data.Close)
+            (self.upper, self.lower, self.model, self.residual) = self.channel(
+                self.lookback, self.data.Open, self.data.Close
+            )
             self.channel_drawn = True
         else:
             upper_extended, lower_extended = self.draw_extension(
