@@ -16,7 +16,7 @@ elif "d" in TIMEFRAME:
 # ------------------ STRATEGY ------------------
 class SegmentedRegressionWithFinalFitBands(Strategy):
     lookback = 250  # Main trend structure (big channel)
-    lookback_intra = 100  # Intraday tighter structure (small channel)
+    lookback_intra = 30  # Intraday tighter structure (small channel)
     lookback_long = 250  # Macro long-term structure
     lookback_intra_shorter = 20  # Intraday-shorter even tighter structure
     channel_drawn = False
@@ -29,6 +29,9 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
     coef = 0
     intercept = 0
     model = None
+    next_breakout_delay = 60  # Initialize delay for next method
+    next_breakout_counter = 0  # Initialize counter for next method
+    next_in_breakout_delay = False  # Initialize flag for next method
 
     def init(self):
         self.mid = (
@@ -118,6 +121,14 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             coef_init = 0
             intercept_init = 0
             start = True
+            breakout_delay = 60  # Number of periods to initially wait
+            breakout_counter = 0
+            in_breakout_delay = False
+            breakout_threshold_percentage = (
+                0.001  # 0.1% move beyond the channel for confirmation
+            )
+            breakout_level = np.nan
+            breakout_type = None  # 'upper' or 'lower'
 
             result = np.full_like(close, np.nan)
             # for loop to loop thru data like real time
@@ -143,15 +154,18 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                             i,
                         )
 
-                        if is_upper:
-                            result[i - lookback : i] = upper_init
-                        elif is_lower:
-                            result[i - lookback : i] = lower_init
+                        upper_result[i - lookback : i] = upper_init
+                        lower_result[i - lookback : i] = lower_init
 
                         channel_drawn_init = True
+                        in_breakout_delay = (
+                            False  # Reset breakout delay when a new channel is drawn
+                        )
+                        breakout_counter = 0
+                        breakout_level = np.nan
+                        breakout_type = None
 
                     else:
-                        print("nigger")
                         upper_init_extended, lower_init_extended = draw_extension_init(
                             i, upper_init[i:], lower_init[i:], model_init, residual_init
                         )
@@ -159,9 +173,8 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                         upper_init = np.append(upper_init, upper_init_extended)
                         lower_init = np.append(lower_init, lower_init_extended)
 
-                        # # Update result based on flags
-                        # upper_result[i - lookback : i] = upper_init
-                        # lower_result[i - lookback : i] = lower_init
+                        upper_result[i] = upper_init_extended
+                        lower_result[i] = lower_init_extended
 
                         if is_upper:
                             result[i] = upper_init_extended
@@ -172,33 +185,57 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
                     # +++++++++++ CHANNEL DRAWN LOGIC +++++++++++++
 
-                    if position_init == False:
-                        if close[i] < lower_result[i] and slopes_init[-1] < 0:
-                            position_init = True
-                            channel_drawn_init = True
-                            digits_init = digits_before_decimal_init(close[i])
-                            if digits_init == 0:
-                                stop_loss_init = close[i] * 0.995
-                            elif digits_init == 1:
-                                stop_loss_init = close[i] * 0.99
-                            elif digits_init == 2:
-                                stop_loss_init = close[i] * 0.98
-                            elif digits_init == 3:
-                                stop_loss_init = close[i] * 0.97
-                            elif digits_init == 4:
-                                stop_loss_init = close[i] * 0.96
-                            elif digits_init == 5:
-                                stop_loss_init = close[i] * 0.95
+                    if close[i] < lower_result[i] and not in_breakout_delay:
+                        print("nigger")
+                        position_init = True
+                        in_breakout_delay = True
+                        breakout_counter = breakout_delay
+                        breakout_level = lower_result[i]
+                        breakout_type = "lower"
+                        digits_init = digits_before_decimal_init(close[i])
+                        if digits_init == 0:
+                            stop_loss_init = close[i] * 0.995
+                        elif digits_init == 1:
+                            stop_loss_init = close[i] * 0.995
+                        elif digits_init == 2:
+                            stop_loss_init = close[i] * 0.995
+                        elif digits_init == 3:
+                            stop_loss_init = close[i] * 0.995
+                        elif digits_init == 4:
+                            stop_loss_init = close[i] * 0.995
+                        elif digits_init == 5:
+                            stop_loss_init = close[i] * 0.995
+
+                    if close[i] > upper_result[i] and not in_breakout_delay:
+                        position_init = False
+                        in_breakout_delay = True
+                        breakout_counter = breakout_delay
+                        breakout_level = upper_result[i]
+                        breakout_type = "upper"
 
                     # ++++++++++ CHANNEL DRAWN LOGIC ++++++++++++++
 
-                    elif position_init:
-                        if close[i] < stop_loss_init:
-                            position_init = False
-                            channel_drawn_init = False
+                    # Decrement the breakout counter and check for confirmation
+                    if in_breakout_delay:
+                        breakout_counter -= 1
 
-                        if close[i] > upper_result[i]:
-                            position_init = False
+                        if breakout_type == "lower" and close[i] < (
+                            breakout_level * (1 - breakout_threshold_percentage)
+                        ):
+                            in_breakout_delay = False
+                            channel_drawn_init = (
+                                False  # Allow redrawing after confirmation
+                            )
+                        elif breakout_type == "upper" and close[i] > (
+                            breakout_level * (1 + breakout_threshold_percentage)
+                        ):
+                            in_breakout_delay = False
+                            channel_drawn_init = (
+                                False  # Allow redrawing after confirmation
+                            )
+                        elif breakout_counter <= 0:
+                            # If the delay runs out without confirmation, still allow redraw
+                            in_breakout_delay = False
                             channel_drawn_init = False
 
             return result
@@ -333,6 +370,11 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
     def next(self):
         if not hasattr(self, "index_next"):  # Initialize index_next if it doesn't exist
             self.index_next = self.lookback  # Start index_next after initial lookback
+            self.next_breakout_delay = (
+                60  # Number of periods to wait after a breakout (for next method)
+            )
+            self.next_breakout_counter = 0
+            self.next_in_breakout_delay = False
 
         self.index_next += 1
 
@@ -343,12 +385,14 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         if len(self.data.Close) <= self.lookback:
             return
 
-        if not self.channel_drawn:
+        if (
+            not self.channel_drawn and not self.next_in_breakout_delay
+        ):  # Only draw if not already drawn and not in breakout delay
             (self.upper, self.lower, self.model, self.residual) = self.channel(
                 self.lookback, self.data.Open, self.data.Close
             )
             self.channel_drawn = True
-        else:
+        elif self.channel_drawn:  # Only extend if the channel is currently drawn
             upper_extended, lower_extended = self.draw_extension(
                 self.index_next,  # Use the current index_next for extension
                 self.upper[
@@ -361,31 +405,43 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             self.upper = np.append(self.upper, upper_extended)
             self.lower = np.append(self.lower, lower_extended)
 
-        if not self.position:
-            if self.data.Close[-1] < self.lower[-1] and self.slopes[-1] < 0:
+        if self.next_in_breakout_delay:
+            self.next_breakout_counter -= 1
+            if self.next_breakout_counter <= 0:
+                self.next_in_breakout_delay = False
+                self.channel_drawn = False  # Allow redrawing after the delay
+
+        if (
+            not self.position and not self.next_in_breakout_delay
+        ):  # Only enter a position if not already in one and not in breakout delay
+            if self.data.Close[-1] < self.lower[-1]:
                 self.buy()
                 self.digits = digits_before_decimal(self.data.Close[-1])
                 if self.digits == 0:
                     self.stop_loss = self.data.Close[-1] * 0.995
                 if self.digits == 1:
-                    self.stop_loss = self.data.Close[-1] * 0.99
+                    self.stop_loss = self.data.Close[-1] * 0.995
                 elif self.digits == 2:
-                    self.stop_loss = self.data.Close[-1] * 0.98
+                    self.stop_loss = self.data.Close[-1] * 0.995
                 elif self.digits == 3:
-                    self.stop_loss = self.data.Close[-1] * 0.97
+                    self.stop_loss = self.data.Close[-1] * 0.995
                 elif self.digits == 4:
-                    self.stop_loss = self.data.Close[-1] * 0.96
+                    self.stop_loss = self.data.Close[-1] * 0.995
                 elif self.digits == 5:
-                    self.stop_loss = self.data.Close[-1] * 0.95
+                    self.stop_loss = self.data.Close[-1] * 0.995
 
         elif self.position:
-            if self.data.Close[-1] < self.stop_loss:
+            if self.data.Close[-1] < self.stop_loss and not self.next_in_breakout_delay:
                 self.position.close()
-                self.channel_drawn = False
+                self.next_in_breakout_delay = True
+                self.next_breakout_counter = self.next_breakout_delay
+                self.channel_drawn = True
 
-            if self.data.Close[-1] > self.upper[-1]:
+            if self.data.Close[-1] > self.upper[-1] and not self.next_in_breakout_delay:
                 self.position.close()
-                self.channel_drawn = False
+                self.next_in_breakout_delay = True
+                self.next_breakout_counter = self.next_breakout_delay
+                self.channel_drawn = True  # Keep it as true during the delay
 
 
 # ------------------ RUN BACKTEST ------------------
