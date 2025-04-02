@@ -17,9 +17,9 @@ DATA_FOLDER = (
 
 
 class SegmentedRegressionWithFinalFitBands(Strategy):
-    lookback = 30
+    lookback = 10
     max_channel_thresh = 0.2
-    min_channel_length = 10
+    min_channel_length = 100
 
     def init(self):
         def channel_init(lookback, open, close, i):
@@ -48,6 +48,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                     )
                     upper_result[i - lookback : i] = upper
                     lower_result[i - lookback : i] = lower
+
                     channel_drawn = True
                     channel_age = 0
                 else:
