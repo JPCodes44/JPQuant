@@ -5,6 +5,7 @@
         "addsizer",
         "addstrategy",
         "adfuller",
+        "allclose",
         "apikey",
         "backtest",
         "BACKTESTING",
