@@ -9,5 +9,10 @@ dependencies = [
     "schedule>=1.2.2",
     "scikit-learn>=1.6.1",
     "statsmodels>=0.14.4",
-    "ta-lib",
+    "ta-lib>=0.6",
+]
+
+[dependency-groups]
+dev = [
+    "jupyterlab>=4.4.0",
 ]
