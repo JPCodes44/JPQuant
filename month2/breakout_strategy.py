@@ -8,18 +8,19 @@ from run_it_back import (
 from sklearn.linear_model import (
     LinearRegression,
 )  # Importing LinearRegression from scikit-learn for regression analysis
-from scipy.signal import find_peaks
-
+from scipy.signal import (
+    find_peaks,
+)  # Importing find_peaks from scipy for peak detection
 
 TIMEFRAME = "m"  # Setting the timeframe for the strategy
 
 # Setting the data folder path based on the timeframe
 DATA_FOLDER = (
     "/Users/jpmak/JPQuant/data/1m_data"  # Path for minute data
-    if "m" in TIMEFRAME
+    if "m" in TIMEFRAME  # If the timeframe is in minutes
     else (
         "/Users/jpmak/JPQuant/data/1h_data"  # Path for hourly data
-        if "h" in TIMEFRAME
+        if "h" in TIMEFRAME  # If the timeframe is in hours
         else "/Users/jpmak/JPQuant/data/1d_data"  # Path for daily data
     )
 )
@@ -28,11 +29,11 @@ DATA_FOLDER = (
 # Defining a custom strategy class that inherits from the Strategy class
 class SegmentedRegressionWithFinalFitBands(Strategy):
     # Defining strategy parameters
-    lookback = 150  # Lookback period for regression
-    lookback_temp = 15
-    min_channel_length = 120  # Minimum length of a channel
+    lookback = 50  # Lookback period for regression
+    lookback_temp = 15  # Temporary lookback period for adjustments
+    min_channel_length = 40  # Minimum length of a channel
     lookback_intra = 15  # Lookback period for intraday regression
-    min_channel_length_intra = 35  # Minimum length of an intraday channel
+    min_channel_length_intra = 20  # Minimum length of an intraday channel
     max_channel_thresh = 0.009  # Maximum threshold for channel breakout
 
     def init(self):  # Initialization method for the strategy
@@ -41,37 +42,39 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         Returns True if a strong peak is found within the recent window.
         """
 
-        def detect_spike_peak(close, i, window, prominence, direction):
+        def detect_spike_peak(close, i, window, prominence):
+            # If the index is less than the window size, return False
             if i < window:
                 return False
 
+            # Extract the segment of close prices for the given window
             segment = np.asarray(close[i - window : i], dtype=np.float64)
-            # Safety check: NaNs, flat, short, or zero-mean segments
+
+            # Safety checks for invalid or flat segments
             if (
-                np.isnan(segment).any()
-                or len(segment) < 3
-                or np.allclose(segment, segment[0])
-                or np.isclose(np.mean(segment), 0)
+                np.isnan(segment).any()  # Check for NaN values
+                or len(segment) < 3  # Ensure the segment has at least 3 values
+                or np.allclose(segment, segment[0])  # Check if all values are the same
+                or np.isclose(np.mean(segment), 0)  # Check if the mean is close to zero
             ):
                 return False
 
-            # Safely compute scaled prominence
+            # Safely compute scaled prominence based on the segment's mean
             scaled_prominence = max(prominence * abs(np.mean(segment)), 1e-6)
 
             try:
-                if direction == "up":
-                    peaks, _ = find_peaks(segment, prominence=scaled_prominence)
-                    print(f"damn nigga, peaks at price: {peaks}")
-                    return len(peaks) > 0 and peaks[-1] > window - 5
-                elif direction == "down":
-                    inverted = -segment
-                    troughs, _ = find_peaks(inverted, prominence=scaled_prominence)
-                    print(f"damn nigga, troughs at price: {troughs}")
-                    return len(troughs) > 0 and troughs[-1] > window - 5
-            except Exception as e:
+                # Find peaks in the segment with the given prominence
+                peaks, _ = find_peaks(segment, prominence=scaled_prominence)
+                # Invert the segment to find troughs
+                inverted = -segment
+                # Find peaks in the inverted segment (troughs in the original)
+                troughs, _ = find_peaks(inverted, prominence=scaled_prominence)
+                # Check if there are peaks or troughs near the end of the window
+                return (len(peaks) > 0 and peaks[-1] > window - 5) or (
+                    len(troughs) > 0 and troughs[-1] > window - 5
+                )
+            except Exception as e:  # Catch any exceptions during peak detection
                 return False
-
-            return False
 
         # Function to initialize a regression channel
         def channel_init(lookback, open, close, i):
@@ -116,9 +119,12 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                     close,
                     i,
                     lookback,
-                    0.05,
-                    "up" if is_upper else "down",
+                    0.005,
                 )
+                print(spike_detected)
+                if spike_detected:
+                    continue
+
                 if not channel_drawn:  # If no channel is drawn
                     upper, lower, model, residuals = channel_init(
                         lookback, open, close, i
