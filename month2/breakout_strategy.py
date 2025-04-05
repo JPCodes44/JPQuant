@@ -45,8 +45,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             if i < window:
                 return False
 
-            segment = close[i - window : i]
-
+            segment = np.asarray(close[i - window : i], dtype=np.float64)
             # Safety check: NaNs, flat, short, or zero-mean segments
             if (
                 np.isnan(segment).any()
@@ -62,10 +61,12 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             try:
                 if direction == "up":
                     peaks, _ = find_peaks(segment, prominence=scaled_prominence)
+                    print(f"damn nigga, peaks at price: {peaks}")
                     return len(peaks) > 0 and peaks[-1] > window - 5
                 elif direction == "down":
                     inverted = -segment
                     troughs, _ = find_peaks(inverted, prominence=scaled_prominence)
+                    print(f"damn nigga, troughs at price: {troughs}")
                     return len(troughs) > 0 and troughs[-1] > window - 5
             except Exception as e:
                 return False
@@ -114,13 +115,11 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                 spike_detected = detect_spike_peak(
                     close,
                     i,
-                    window=lookback,
-                    prominence=0.0001,
-                    direction="up" if is_upper else "down",
+                    lookback,
+                    0.05,
+                    "up" if is_upper else "down",
                 )
-                if (
-                    not channel_drawn and spike_detected == False
-                ):  # If no channel is drawn
+                if not channel_drawn:  # If no channel is drawn
                     upper, lower, model, residuals = channel_init(
                         lookback, open, close, i
                     )  # Initialize the channel
