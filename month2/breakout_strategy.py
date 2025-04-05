@@ -17,9 +17,11 @@ DATA_FOLDER = (
 
 
 class SegmentedRegressionWithFinalFitBands(Strategy):
-    lookback = 10
+    lookback = 100
+    min_channel_length = 120
+    lookback_intra = 15
+    min_channel_length_intra = 35
     max_channel_thresh = 0.2
-    min_channel_length = 100
 
     def init(self):
         def channel_init(lookback, open, close, i):
@@ -33,7 +35,9 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             lower = y_fit + residuals.min()
             return upper, lower, model, residuals
 
-        def best_fit_line_range_channel(lookback, close, open, is_upper):
+        def best_fit_line_range_channel(
+            lookback, close, open, is_upper, min_channel_length
+        ):
             upper_result = np.full_like(close, np.nan)
             lower_result = np.full_like(close, np.nan)
             channel_drawn = False
@@ -62,7 +66,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
                 if (
                     abs(close[i] - lower_result[i]) > self.max_channel_thresh * close[i]
-                    or channel_age >= self.min_channel_length
+                    or channel_age >= min_channel_length
                 ):
                     channel_drawn = False
 
@@ -74,6 +78,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             self.data.Close,
             self.data.Open,
             True,
+            self.min_channel_length,
         )
         self.lower_band = self.I(
             best_fit_line_range_channel,
@@ -81,6 +86,23 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             self.data.Close,
             self.data.Open,
             False,
+            self.min_channel_length,
+        )
+        self.upper_band_intra = self.I(
+            best_fit_line_range_channel,
+            self.lookback_intra,
+            self.data.Close,
+            self.data.Open,
+            True,
+            self.min_channel_length_intra,
+        )
+        self.lower_band_intra = self.I(
+            best_fit_line_range_channel,
+            self.lookback_intra,
+            self.data.Close,
+            self.data.Open,
+            False,
+            self.min_channel_length_intra,
         )
 
     def next(self):
