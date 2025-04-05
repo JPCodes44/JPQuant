@@ -62,12 +62,10 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             try:
                 if direction == "up":
                     peaks, _ = find_peaks(segment, prominence=scaled_prominence)
-                    print("u good nigga")
                     return len(peaks) > 0 and peaks[-1] > window - 5
                 elif direction == "down":
                     inverted = -segment
                     troughs, _ = find_peaks(inverted, prominence=scaled_prominence)
-                    print("u good nigga")
                     return len(troughs) > 0 and troughs[-1] > window - 5
             except Exception as e:
                 return False
