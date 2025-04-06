@@ -1,171 +1,178 @@
-import numpy as np  # Importing the numpy library for numerical operations
-from backtesting import (
-    Strategy,
-)  # Importing the Strategy class from the backtesting library
-from run_it_back import (
-    run_backtest,
-)  # Importing the run_backtest function from a custom module
-from sklearn.linear_model import (
-    LinearRegression,
-)  # Importing LinearRegression from scikit-learn for regression analysis
-from scipy.signal import (
-    find_peaks,
-)  # Importing find_peaks from scipy for peak detection
+import numpy as np
+from backtesting import Strategy
+from run_it_back import run_backtest
+from sklearn.linear_model import LinearRegression
+from scipy.signal import find_peaks
 
-TIMEFRAME = "m"  # Setting the timeframe for the strategy
-
-# Setting the data folder path based on the timeframe
+TIMEFRAME = "m"  # Defines the timeframe for the data (likely 'minutes')
 DATA_FOLDER = (
-    "/Users/jpmak/JPQuant/data/1m_data"  # Path for minute data
-    if "m" in TIMEFRAME  # If the timeframe is in minutes
+    "/Users/jpmak/JPQuant/data/1m_data"  # Path to the 1-minute data folder if TIMEFRAME is 'm'
+    if "m" in TIMEFRAME
     else (
-        "/Users/jpmak/JPQuant/data/1h_data"  # Path for hourly data
-        if "h" in TIMEFRAME  # If the timeframe is in hours
-        else "/Users/jpmak/JPQuant/data/1d_data"  # Path for daily data
+        "/Users/jpmak/JPQuant/data/1h_data"  # Path to the 1-hour data folder if TIMEFRAME is 'h'
+        if "h" in TIMEFRAME
+        else "/Users/jpmak/JPQuant/data/1d_data"  # Path to the 1-day data folder otherwise
     )
 )
 
 
-# Defining a custom strategy class that inherits from the Strategy class
 class SegmentedRegressionWithFinalFitBands(Strategy):
-    # Defining strategy parameters
-    lookback = 50  # Lookback period for regression
-    lookback_temp = 15  # Temporary lookback period for adjustments
-    min_channel_length = 40  # Minimum length of a channel
-    lookback_intra = 15  # Lookback period for intraday regression
-    min_channel_length_intra = 20  # Minimum length of an intraday channel
-    max_channel_thresh = 0.009  # Maximum threshold for channel breakout
+    lookback = (
+        20  # Number of past data points to consider for the initial linear regression
+    )
+    lookback_temp = (
+        10  # Shorter lookback period used when the price moves away from the channel
+    )
+    min_channel_length = 15  # Minimum number of data points a channel must exist for
+    max_channel_thresh = 0.02  # Maximum allowed percentage difference between the price and the channel boundary to avoid re-initialization
+    sl_price = 0  # Variable to store the stop-loss price
+    slopes = []  # List to store the calculated slopes of the lower band
+    stop_hit_already = (
+        False  # Flag to track if the stop-loss has been hit in the current trade
+    )
 
-    def init(self):  # Initialization method for the strategy
-        """
-        Checks for a significant peak (up or down) near index i using scipy's peak detection.
-        Returns True if a strong peak is found within the recent window.
-        """
+    def init(self):
+        # Initialization method called once at the beginning of the backtest
 
         def detect_spike_peak(close, i, window, prominence):
-            # If the index is less than the window size, return False
+            # Function to detect sudden spike peaks or troughs in the price data
             if i < window:
-                return False
-
-            # Extract the segment of close prices for the given window
-            segment = np.asarray(close[i - window : i], dtype=np.float64)
-
-            # Safety checks for invalid or flat segments
+                return False  # Not enough data points to analyze
+            segment = np.asarray(
+                close[i - window : i], dtype=np.float64
+            )  # Extract a segment of the closing prices
             if (
-                np.isnan(segment).any()  # Check for NaN values
-                or len(segment) < 3  # Ensure the segment has at least 3 values
-                or np.allclose(segment, segment[0])  # Check if all values are the same
-                or np.isclose(np.mean(segment), 0)  # Check if the mean is close to zero
+                np.isnan(
+                    segment
+                ).any()  # Check if there are any NaN values in the segment
+                or len(segment) < 3  # Check if the segment has fewer than 3 data points
+                or np.allclose(
+                    segment, segment[0]
+                )  # Check if all prices in the segment are very close to the first price
+                or np.isclose(
+                    np.mean(segment), 0
+                )  # Check if the mean of the segment is close to zero
             ):
-                return False
-
-            # Safely compute scaled prominence based on the segment's mean
-            scaled_prominence = max(prominence * abs(np.mean(segment)), 1e-6)
-
+                return False  # Conditions for considering it not a valid segment for peak detection
+            scaled_prominence = max(
+                prominence * abs(np.mean(segment)), 1e-6
+            )  # Scale the prominence based on the average price magnitude
             try:
-                # Find peaks in the segment with the given prominence
-                peaks, _ = find_peaks(segment, prominence=scaled_prominence)
-                # Invert the segment to find troughs
-                inverted = -segment
-                # Find peaks in the inverted segment (troughs in the original)
-                troughs, _ = find_peaks(inverted, prominence=scaled_prominence)
-                # Check if there are peaks or troughs near the end of the window
-                return (len(peaks) > 0 and peaks[-1] > window - 5) or (
-                    len(troughs) > 0 and troughs[-1] > window - 5
+                peaks, _ = find_peaks(
+                    segment, prominence=scaled_prominence
+                )  # Find peaks in the segment
+                troughs, _ = find_peaks(
+                    -segment, prominence=scaled_prominence
+                )  # Find troughs (peaks in the negative of the segment)
+                return (
+                    len(peaks) > 0 and peaks[-1] > window - 5
+                ) or (  # Check if a peak was found near the end of the window
+                    len(troughs) > 0
+                    and troughs[-1]
+                    > window
+                    - 5  # Check if a trough was found near the end of the window
                 )
-            except Exception as e:  # Catch any exceptions during peak detection
-                return False
+            except:
+                return False  # Return False if any error occurs during peak detection
 
-        # Function to initialize a regression channel
         def channel_init(lookback, open, close, i):
-            model = LinearRegression()  # Create a linear regression model
+            # Function to initialize the linear regression channel
+            model = LinearRegression()  # Create a Linear Regression model
             X = np.arange(i - lookback, i).reshape(
                 -1, 1
-            )  # Create the independent variable
+            )  # Create the independent variable (time index) for the lookback period
             y = (
                 open[i - lookback : i] + close[i - lookback : i]
-            ) / 2  # Calculate the dependent variable as the average of open and close prices
-            model.fit(X, y)  # Fit the regression model
-            y_fit = model.predict(X)  # Predict the fitted values
-            residuals = close[i - lookback : i] - y_fit  # Calculate residuals
-            upper = y_fit + residuals.max()  # Calculate the upper band
-            lower = y_fit + residuals.min()  # Calculate the lower band
+            ) / 2  # Calculate the midpoint of the open and close prices for the lookback period as the dependent variable
+            model.fit(X, y)  # Fit the linear regression model to the data
+            y_fit = model.predict(X)  # Predict the values based on the fitted model
+            residuals = (
+                close[i - lookback : i] - y_fit
+            )  # Calculate the residuals (difference between actual close and predicted values)
+            upper = (
+                y_fit + residuals.max()
+            )  # Calculate the upper band by adding the maximum residual to the predicted values
+            lower = (
+                y_fit + residuals.min()
+            )  # Calculate the lower band by adding the minimum residual to the predicted values
             return (
                 upper,
                 lower,
                 model,
                 residuals,
-            )  # Return the bands, model, and residuals
+            )  # Return the upper band, lower band, the fitted model, and the residuals
 
-        # Function to calculate the best-fit line and channel range
         def best_fit_line_range_channel(
             lookback, close, open, is_upper, min_channel_length
         ):
+            # Function to draw and extend the best-fit linear regression channel
             upper_result = np.full_like(
                 close, np.nan
-            )  # Initialize the upper band array
+            )  # Initialize an array for the upper band with NaN values
             lower_result = np.full_like(
                 close, np.nan
-            )  # Initialize the lower band array
-            channel_drawn = False  # Flag to indicate if a channel is drawn
-            channel_age = 0  # Counter for the age of the channel
-            too_far = False
+            )  # Initialize an array for the lower band with NaN values
+            result = np.full_like(
+                close, np.nan
+            )  # Initialize an array for the result (either upper or lower band) with NaN values
+            channel_drawn = False  # Flag to indicate if a channel has been drawn
+            channel_age = 0  # Counter for the number of data points the current channel has existed for
+            too_far = False  # Flag to indicate if the price has moved too far from the channel
 
-            result = np.full_like(close, np.nan)  # Initialize the result array
+            # loop through data in real time
+            for i in range(lookback, len(close)):
+                # detect the spike peaks
+                if detect_spike_peak(close, i, lookback, 0.005):
+                    continue  # Skip this iteration if a spike peak is detected
 
-            for i in range(lookback, len(close)):  # Iterate over the data
-                # Detect a strong peak or trough (based on which band you're checking)
-                spike_detected = detect_spike_peak(
-                    close,
-                    i,
-                    lookback,
-                    0.005,
-                )
-                print(spike_detected)
-                if spike_detected:
-                    continue
-
-                if not channel_drawn:  # If no channel is drawn
+                # if the channel hasn't been drawn yet draw it!
+                if not channel_drawn:
                     upper, lower, model, residuals = channel_init(
                         lookback, open, close, i
-                    )  # Initialize the channel
-                    upper_result[i - lookback : i] = upper  # Update the upper band
-                    lower_result[i - lookback : i] = lower  # Update the lower band
+                    )
 
-                    channel_drawn = True  # Set the channel drawn flag
-                    channel_age = 0  # Reset the channel age
+                    # only update the lookback of the result filled with np.nan's
+                    upper_result[i - lookback : i] = upper
+                    lower_result[i - lookback : i] = lower
+                    # check that the channel drawn is true so u dont reinitialize it
+                    channel_drawn = True
+                    # set channel age to 0 to ensure the min channel age is reset (ensures a certain min length for each channel)
+                    channel_age = 0
+
+                    # if the temp_lookback adjustment has alr been applied, change ts shit back
                     if too_far:
                         lookback = self.lookback
                         too_far = False
-                else:  # If a channel is already drawn
-                    X_EXTEND = np.array([[i - 1]])  # Extend the regression line
-                    y_fit_extended = model.predict(
-                        X_EXTEND
-                    ).flatten()  # Predict the next value
-                    upper_result[i] = (
-                        y_fit_extended + residuals.max()
-                    )  # Update the upper band
-                    lower_result[i] = (
-                        y_fit_extended + residuals.min()
-                    )  # Update the lower band
-                    channel_age += 1  # Increment the channel age
+                    # keep extending the channel if it has alr been drawn
+                else:
+                    # sets the x values of the extended array incrementing by each ith iteration
+                    X_EXTEND = np.array([[i - 1]])
+                    # apply a predict to the extended x array to give the same extended regression
+                    y_fit_extended = model.predict(X_EXTEND).flatten()
+                    # fit the line to match the lowest close price and highest close price of the lookback window
+                    upper_result[i] = y_fit_extended + residuals.max()
+                    lower_result[i] = y_fit_extended + residuals.min()
+                    # increment the channel age by 1
+                    channel_age += 1
 
-                result[i] = (
-                    upper_result[i] if is_upper else lower_result[i]
-                )  # Assign the result based on the band type
+                # add each ith part of the linear regression to the ith part of result
+                result[i] = upper_result[i] if is_upper else lower_result[i]
 
-                # Reset the channel if breakout conditions are met
+                # bypass the min_channel_length condition if the channel is too far apart from the close price
                 if (
                     abs(close[i] - lower_result[i]) > self.max_channel_thresh * close[i]
+                    or abs(close[i] - upper_result[i])
+                    > self.max_channel_thresh * close[i]
                     or channel_age >= min_channel_length
                 ):
                     lookback = self.lookback_temp
+                    # state var to check if the temp lookback has been applied
                     too_far = True
-                    channel_drawn = False  # Reset the channel drawn flag
+                    # state var to reinitialize the channel drawing
+                    channel_drawn = False
 
-            return result  # Return the calculated band
+            return result
 
-        # Calculate the upper band for the main timeframe
         self.upper_band = self.I(
             best_fit_line_range_channel,
             self.lookback,
@@ -173,8 +180,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             self.data.Open,
             True,
             self.min_channel_length,
-        )
-        # Calculate the lower band for the main timeframe
+        )  # Calculate the upper band using the best_fit_line_range_channel function
         self.lower_band = self.I(
             best_fit_line_range_channel,
             self.lookback,
@@ -182,34 +188,102 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             self.data.Open,
             False,
             self.min_channel_length,
-        )
-        # Calculate the upper band for the intraday timeframe
-        # self.upper_band_intra = self.I(
-        #     best_fit_line_range_channel,
-        #     self.lookback_intra,
-        #     self.data.Close,
-        #     self.data.Open,
-        #     True,
-        #     self.min_channel_length_intra,
-        # )
-        # # Calculate the lower band for the intraday timeframe
-        # self.lower_band_intra = self.I(
-        #     best_fit_line_range_channel,
-        #     self.lookback_intra,
-        #     self.data.Close,
-        #     self.data.Open,
-        #     False,
-        #     self.min_channel_length_intra,
-        # )
+        )  # Calculate the lower band using the best_fit_line_range_channel function
 
-    def next(self):  # Method to define the trading logic
-        # If no position is open and the close price is below the lower band, buy
-        if not self.position and self.data.Close[-1] < self.lower_band[-1]:
-            self.buy()
-        # If a position is open and the close price is above the upper band, close the position
-        elif self.position and self.data.Close[-1] > self.upper_band[-1]:
-            self.position.close()
+    def next(self):
+        # Method called at each time step of the backtest
+
+        def get_slope(band):
+            # Function to calculate the slope of the given band
+            if not np.isnan(band[-1]) and not np.isnan(band[-2]):
+                # Check if the last two values of the band are not NaN
+                # Calculate the change in y (band values) and x (index values)
+                change_y = band[-1] - band[-2]  # The difference in y-values
+                change_x = len(band) - (
+                    len(band) - 1
+                )  # The difference in x-values (which is always 1 for consecutive points)
+
+                # Calculate the raw slope and round it to 3 decimal places
+                slope = float(f"{(change_y / change_x):.3f}")
+                self.slopes = np.append(
+                    self.slopes, slope
+                )  # Append the calculated slope to the slopes list
+            else:
+                self.slopes = np.append(
+                    self.slopes, np.nan
+                )  # Append NaN if the last two band values are NaN
+
+        def digits_before_decimal(close):
+            # Function to count the number of digits before the decimal point in the last close price
+            digits_before_decimal = len(str(int(close[-1])))
+            return digits_before_decimal
+
+        def stop_loss(close, volume):
+            # Function to calculate the stop-loss price
+            # Calculate the volatility adjustment factor based on the asset's volatility
+            volatility_factor = 1 + (volume[-1] / 100)  # Adjust the factor as needed
+
+            # Calculate the stop-loss based on the current close price and volatility factor
+            # The stop-loss is set to 50% of the current close price adjusted by the volatility factor
+            stop_loss = close[-1] * (0.50 * volatility_factor)
+            digits = digits_before_decimal(close)
+            # Optionally, you can round the stop_loss based on the number of digits
+            if digits > 0:
+                # Determine the rounding factor based on the number of digits
+                rounding_factor = 10 ** (-digits)
+                stop_loss = round(stop_loss / rounding_factor) * rounding_factor
+
+            return stop_loss
+
+        get_slope(self.lower_band)  # Calculate and store the slope of the lower band
+        print(self.slopes)  # Print the list of calculated slopes
+
+        if (
+            not self.position  # Check if there is no open position
+            and self.data.Close[-1]
+            < self.lower_band[
+                -1
+            ]  # Check if the current close price is below the lower band
+            and self.slopes[-1]
+            < 0  # Check if the last calculated slope of the lower band is negative
+        ):
+            self.buy()  # Execute a buy order
+            self.sl_price = stop_loss(
+                self.data.Close, self.data.Volume
+            )  # Calculate and set the stop-loss price
+            self.stop_hit_already = (
+                False  # Reset the stop hit flag when a new position is opened
+            )
+
+        elif self.position:  # If there is an open position
+            if self.data.Close[-1] > self.upper_band[-1]:
+                self.position.close()  # Close the position if the current close price is above the upper band
+            elif (
+                self.data.Close[-1] <= self.sl_price
+            ):  # Check if the current close price is at or below the stop-loss price
+                if (
+                    self.stop_hit_already == True
+                ):  # Check if the stop-loss has already been hit
+                    if (
+                        self.slopes[-1]
+                        != self.slopes[
+                            -2
+                        ]  # Check if the current slope is different from the previous slope
+                        and not np.isnan(
+                            self.slopes[-1]
+                        )  # Check if the current slope is not NaN
+                        and not np.isnan(
+                            self.slopes[-2]
+                        )  # Check if the previous slope is not NaN
+                    ):
+                        print(self.slopes[-1])  # Print the last slope
+                        print(self.slopes[-2])  # Print the previous slope
+                        self.stop_hit_already = False  # Reset the stop hit flag
+                else:
+                    self.position.close()  # Close the position
+                    self.stop_hit_already = True  # Set the stop hit flag to True
 
 
-# Run the backtest using the defined strategy and data folder
-run_backtest(SegmentedRegressionWithFinalFitBands, DATA_FOLDER)
+run_backtest(
+    SegmentedRegressionWithFinalFitBands, DATA_FOLDER
+)  # Run the backtest with the defined strategy and data folder

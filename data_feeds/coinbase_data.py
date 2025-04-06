@@ -33,7 +33,7 @@ SYMBOL_LIST = [
     "BCH-USD",
     # "ATOM-USD",
     # "XLM-USD",
-    "ARB-USD",
+    # "ARB-USD",
     # "APT-USD",
     # "OP-USD",
     "SUI-USD",
@@ -54,7 +54,7 @@ elif "d" in TIMEFRAME:
 # DATE_RANGE = pd.date_range(start="2019-03-06", end="2025-03-07") 1d timeframe
 
 
-NUM_CSV = 20
+NUM_CSV = 5
 
 # Create save directory if it doesn't exist
 os.makedirs(SAVE_DIR, exist_ok=True)
