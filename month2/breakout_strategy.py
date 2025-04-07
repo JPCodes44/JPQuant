@@ -1,5 +1,6 @@
 import numpy as np
 from backtesting import Strategy
+import backtesting
 from run_it_back import run_backtest
 from sklearn.linear_model import LinearRegression
 from scipy.signal import find_peaks
@@ -17,11 +18,12 @@ DATA_FOLDER = (
 
 
 class SegmentedRegressionWithFinalFitBands(Strategy):
-    lookback = 30
+    lookback = 70
     lookback_temp = 50
-    min_channel_length = 100
+    min_channel_length = 80
     max_channel_thresh = 0.02
     sl_price = 0
+    target_price = 0
     slopes = []
     stop_hit_already = False
     new_channel_started = False
@@ -149,20 +151,41 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
         start_looking(self.lower_band)
 
-        if not self.position:
-            if self.new_channel_started == True:
+        # Assume bands and prices are not nan
+        price = self.data.Close[-1]
+        lower_band = self.lower_band[-1]
+        upper_band = self.upper_band[-1]
 
-                if self.data.Close[-1] < self.lower_band[-1] and self.slopes[-1] < 0:
-                    print(self.slopes[-1])
+        # Check lower band touch
+        if price <= lower_band:
+            if self.data.Open[-1] > lower_band:
+                self.touched_lower_from_above = True
+            if self.data.Open[-1] < lower_band:
+                self.touched_lower_from_below = True
+
+        # Check upper band touch
+        if price >= upper_band:
+            if self.data.Open[-1] < upper_band:
+                self.touched_upper_from_below = True
+            if self.data.Open[-1] > upper_band:
+                self.touched_upper_from_above = True
+
+        if not self.position:
+            if self.new_channel_started:
+                # Breakout trigger: price crosses above upper band but slope is still bearish
+                if self.data.Close[-1] > self.upper_band[-1] and self.slopes[-1] < 0:
                     self.buy()
-                    self.sl_price = self.data.Close[-1] * 0.99995
+                    self.sl_price = self.data.Close[-1] * 0.95
+                    self.target_price = self.data.Close[-1] * 1.04
 
         elif self.position:
-            if self.data.Close[-1] > self.upper_band[-1]:
+            # Exit logic: either stop loss or target profit hit
+            if (
+                self.data.Close[-1] < self.sl_price
+                or self.data.Close[-1] >= self.target_price
+            ):
                 self.position.close()
-            # elif self.data.Close[-1] < self.sl_price:
-            #     self.position.close()
-            #     self.new_channel_started = False
+                self.new_channel_started = False
 
 
 run_backtest(SegmentedRegressionWithFinalFitBands, DATA_FOLDER)

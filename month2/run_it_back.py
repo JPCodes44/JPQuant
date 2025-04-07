@@ -5,7 +5,10 @@ import pandas as pd
 import random
 
 
-def run_backtest(Strategy, DATA_FOLDER):
+def run_backtest(
+    Strategy,
+    DATA_FOLDER,
+):
 
     SAVE_FOLDER = "/Users/jpmak/JPQuant/month2/results"
 
