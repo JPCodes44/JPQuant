@@ -21,25 +21,25 @@ import time
 
 # ====== Moon Dev's Configuration 🌙 ======
 SYMBOL_LIST = [
-    "BTC-USD",
-    "ETH-USD",
+    # "BTC-USD",
+    # "ETH-USD",
     "SOL-USD",
-    "AVAX-USD",
-    "ADA-USD",
-    "DOGE-USD",
-    "MATIC-USD",
-    "LTC-USD",
-    "LINK-USD",
-    "BCH-USD",
-    "ATOM-USD",
-    "XLM-USD",
-    "APT-USD",
-    "OP-USD",
-    "SUI-USD",
+    # "AVAX-USD",
+    # "ADA-USD",
+    # "DOGE-USD",
+    # "MATIC-USD",
+    # "LTC-USD",
+    # "LINK-USD",
+    # "BCH-USD",
+    # "ATOM-USD",
+    # "XLM-USD",
+    # "APT-USD",
+    # "OP-USD",
+    # "SUI-USD",
     # "RNDR-USD",
-    "ICP-USD",
-    "AAVE-USD",
-    "UNI-USD",
+    # "ICP-USD",
+    # "AAVE-USD",
+    # "UNI-USD",
 ]
 TIMEFRAME = "1m"  # Timeframe (e.g., '1m', '5m', '1h', '6h', '1d')
 
@@ -228,8 +228,8 @@ def generate_random_date_range(timeframe: str):
 
     # Set bounds for how big/small windows can be
     if "m" in timeframe:
-        earliest = pd.to_datetime("2020-01-01 09:10:00")
-        latest = pd.to_datetime("2025-03-23 09:10:00")
+        earliest = pd.to_datetime("2023-01-01 09:10:00")
+        latest = pd.to_datetime("2024-03-23 09:10:00")
         abs_min = datetime.timedelta(minutes=5)
         abs_max = datetime.timedelta(days=5)
         freq = "min"

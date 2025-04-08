@@ -1,6 +1,5 @@
 import numpy as np
 from backtesting import Strategy
-import backtesting
 from run_it_back import run_backtest
 from sklearn.linear_model import LinearRegression
 from scipy.signal import find_peaks
@@ -18,13 +17,21 @@ DATA_FOLDER = (
 
 
 class SegmentedRegressionWithFinalFitBands(Strategy):
-    lookback = 70
-    lookback_temp = 50
-    min_channel_length = 80
-    max_channel_thresh = 0.02
+    lookback = 50
+    lookback_temp = 5
+
+    # Main channel settings
+    min_channel_length = 40
+
+    # Intra channel settings
+    lookback_intra = 20
+    min_channel_length_intra = 40
+
+    # State variables
     sl_price = 0
     target_price = 0
     slopes = []
+    touch_history = []
     stop_hit_already = False
     new_channel_started = False
 
@@ -110,6 +117,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
             return result
 
+        # Main channel (longer-term)
         self.upper_band = self.I(
             best_fit_line_range_channel,
             self.lookback,
@@ -118,6 +126,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             True,
             self.min_channel_length,
         )
+
         self.lower_band = self.I(
             best_fit_line_range_channel,
             self.lookback,
@@ -125,6 +134,25 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             self.data.Open,
             False,
             self.min_channel_length,
+        )
+
+        # Intra channel (shorter-term)
+        self.upper_band_intra = self.I(
+            best_fit_line_range_channel,
+            self.lookback_intra,
+            self.data.Close,
+            self.data.Open,
+            True,
+            self.min_channel_length_intra,
+        )
+
+        self.lower_band_intra = self.I(
+            best_fit_line_range_channel,
+            self.lookback_intra,
+            self.data.Close,
+            self.data.Open,
+            False,
+            self.min_channel_length_intra,
         )
 
     def next(self):
@@ -153,37 +181,56 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
         # Assume bands and prices are not nan
         price = self.data.Close[-1]
+        open_price = self.data.Open[-1]
+        index = self.data.index[-1]
         lower_band = self.lower_band[-1]
         upper_band = self.upper_band[-1]
 
-        # Check lower band touch
-        if price <= lower_band:
-            if self.data.Open[-1] > lower_band:
-                self.touched_lower_from_above = True
-            if self.data.Open[-1] < lower_band:
-                self.touched_lower_from_below = True
+        if self.new_channel_started:
+            close = self.data.Close[-1]
+            prev_close = self.data.Close[-2]
 
-        # Check upper band touch
-        if price >= upper_band:
-            if self.data.Open[-1] < upper_band:
-                self.touched_upper_from_below = True
-            if self.data.Open[-1] > upper_band:
-                self.touched_upper_from_above = True
+            # Lower band touch
+            if prev_close > lower_band and close <= lower_band:
+                self.touch_history.append(("lfa", index, close))
+            elif prev_close < lower_band and close >= lower_band:
+                self.touch_history.append(("lfb", index, close))
+
+            # Upper band touch
+            if prev_close < upper_band and close >= upper_band:
+                self.touch_history.append(("ufb", index, close))
+            elif prev_close > upper_band and close <= upper_band:
+                self.touch_history.append(("ufa", index, close))
+
+            # Upper band touches
+            if close > upper_band:
+                if prev_close < upper_band:
+                    self.touch_history.append(
+                        ("ufb", self.data.index[-1], close)
+                    )  # from below
+                elif prev_close > upper_band:
+                    self.touch_history.append(
+                        ("ufa", self.data.index[-1], close)
+                    )  # continued above
 
         if not self.position:
             if self.new_channel_started:
                 # Breakout trigger: price crosses above upper band but slope is still bearish
-                if self.data.Close[-1] > self.upper_band[-1] and self.slopes[-1] < 0:
-                    self.buy()
-                    self.sl_price = self.data.Close[-1] * 0.95
-                    self.target_price = self.data.Close[-1] * 1.04
+                if len(self.touch_history) > 5:
+                    if (
+                        all(self.touch_history[j][0] == "ufa" for j in range(-2, -1))
+                        and all(
+                            self.touch_history[i][0] == "ufb" for i in range(-5, -3)
+                        )
+                        and self.slopes[-1] < 0
+                    ):
+                        self.buy()
+                        self.sl_price = price * 0.992
+                        self.target_price = price * 1.008
 
         elif self.position:
             # Exit logic: either stop loss or target profit hit
-            if (
-                self.data.Close[-1] < self.sl_price
-                or self.data.Close[-1] >= self.target_price
-            ):
+            if price >= self.target_price or price <= self.sl_price:
                 self.position.close()
                 self.new_channel_started = False
 
