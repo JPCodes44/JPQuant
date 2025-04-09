@@ -17,20 +17,22 @@ DATA_FOLDER = (
 
 
 class SegmentedRegressionWithFinalFitBands(Strategy):
-    lookback = 50
-    lookback_temp = 5
-
     # Main channel settings
-    min_channel_length = 40
+    lookback = 50
+    min_channel_length = 30
 
     # Intra channel settings
-    lookback_intra = 20
-    min_channel_length_intra = 40
+    lookback_intra = 5
+    min_channel_length_intra = 10
+
+    # If close price is too far from the close price, the channel will be redrawn temporary with a new lookback
+    lookback_temp = 5
 
     # State variables
     sl_price = 0
     target_price = 0
     slopes = []
+    slopes_intra = []
     touch_history = []
     stop_hit_already = False
     new_channel_started = False
@@ -156,28 +158,29 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         )
 
     def next(self):
-        def get_slope(band):
+        def get_slope(band, slopes, precision):
             if not np.isnan(band[-1]) and not np.isnan(band[-2]):
                 change_y = band[-1] - band[-2]
                 change_x = len(band) - (len(band) - 1)
-                slope = float(f"{(change_y / change_x):.3f}")
-                self.slopes = np.append(self.slopes, slope)
+                slope = float(f"{(change_y / change_x):{precision}f}")
+                slopes = np.append(slopes, slope)
             else:
-                if len(self.slopes) > 1:
-                    self.slopes = np.append(self.slopes, self.slopes[-1])
+                if len(slopes) > 1:
+                    slopes = np.append(slopes, slopes[-1])
+            return slopes
 
-        def start_looking(band):
-            get_slope(band)
-            if self.new_channel_started != True:
-                if len(self.slopes) > 1:
-                    if self.slopes[-1] != self.slopes[-2]:
-                        self.new_channel_started = True
+        def start_looking(band, slope_array_name, precision):
+            # 1) Update the slope array
+            updated = get_slope(band, slope_array_name, precision)
+            # 2) Store it back
+            if slope_array_name is self.slopes:
+                self.slopes = updated
+            else:
+                self.slopes_intra = updated
 
-        # def digits_before_decimal(close):
-        #     digits_before_decimal = len(str(int(close[-1])))
-        #     return digits_before_decimal
-
-        start_looking(self.lower_band)
+        start_looking(self.lower_band, self.slopes, 0.5)
+        start_looking(self.lower_band_intra, self.slopes_intra, 0.8)
+        print(self.slopes)
 
         # Assume bands and prices are not nan
         price = self.data.Close[-1]
@@ -223,6 +226,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                             self.touch_history[i][0] == "ufb" for i in range(-5, -3)
                         )
                         and self.slopes[-1] < 0
+                        and self.slopes_intra[-1] > 0
                     ):
                         self.buy()
                         self.sl_price = price * 0.992
