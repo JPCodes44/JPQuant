@@ -280,10 +280,10 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                             self.touch_history[i][0] == "ufb" for i in range(-15, -10)
                         )
                         and all(
-                            self.touch_history[i][0] == "mid" for i in range(-16, -39)
+                            self.touch_history[i][0] == "mid" for i in range(-16, -69)
                         )
                         and any(
-                            self.touch_history[i][0] == "ufb" for i in range(-60, -40)
+                            self.touch_history[i][0] == "ufb" for i in range(-100, -70)
                         )
                         and self.slopes[-1] < 0
                         and self.slopes_intra[-1] < self.slopes[-1]
