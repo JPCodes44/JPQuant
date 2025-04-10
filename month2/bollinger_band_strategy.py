@@ -13,11 +13,22 @@ In addition, we will set stop losses based on the buys.
 
 # ======================================================================
 
+TIMEFRAME = "m"
+DATA_FOLDER = (
+    "/Users/jpmak/JPQuant/data/1m_data"
+    if "m" in TIMEFRAME
+    else (
+        "/Users/jpmak/JPQuant/data/1h_data"
+        if "h" in TIMEFRAME
+        else "/Users/jpmak/JPQuant/data/1d_data"
+    )
+)
+
 
 class BollingerStrategy(Strategy):
 
     # --- PARAMS GO HERE ----
-    period = 20
+    period = 150
     std_dev = 1.7
 
     # --- VARIABLES CONTAINING INDICATORS AND OTHER SETUP SHIT GOES HERE ----
@@ -48,17 +59,17 @@ class BollingerStrategy(Strategy):
             # Only buy if we *just* crossed below the lower band
             if was_above_lower and now_below_lower:
                 self.buy()
-                self.stop_loss = self.data.Close[-1] * 0.95
+                self.stop_loss = self.data.Close[-1] * 0.995
 
         elif self.position:
             # Only close if we *just* crossed above the upper band
             if was_below_upper and now_above_upper:
                 self.position.close()
-            elif self.data.Close[-1] <= self.stop_loss:
-                self.position.close()
+            # elif self.data.Close[-1] <= self.stop_loss:
+            #     self.position.close()
 
 
 # ======================================================================
 
 
-run_backtest(BollingerStrategy)
+run_backtest(BollingerStrategy, DATA_FOLDER)

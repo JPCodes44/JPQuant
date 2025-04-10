@@ -3,6 +3,7 @@ from backtesting import Strategy
 from run_it_back import run_backtest
 from sklearn.linear_model import LinearRegression
 from scipy.signal import find_peaks
+import talib as ta
 
 TIMEFRAME = "m"
 DATA_FOLDER = (
@@ -36,6 +37,10 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
     touch_history = []
     stop_hit_already = False
     new_channel_started = False
+
+    # SMA settings
+    n1 = 5
+    n2 = 20
 
     def init(self):
         def detect_spike_peak(close, i, window, prominence):
@@ -118,6 +123,10 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                 channel_age += 1
 
             return result
+
+        # Precompute the two EMAs.
+        self.sma1 = self.I(ta.EMA, self.data.Close, self.n1)
+        self.sma2 = self.I(ta.EMA, self.data.Close, self.n2)
 
         # Main channel (longer-term)
         self.upper_band = self.I(
@@ -262,19 +271,21 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         if not self.position:
             if self.new_channel_started:
                 # Breakout trigger: price crosses above upper band but slope is still bearish
+                # for zones, use any for short ranges and use all for big ranges
                 if len(self.touch_history) > 70:
                     if (
                         all(self.touch_history[j][0] == "ufa" for j in range(-9, -1))
                         and any(
                             self.touch_history[i][0] == "ufb" for i in range(-15, -10)
                         )
-                        and all
+                        and all(
+                            self.touch_history[i][0] == "mid" for i in range(-16, -39)
+                        )
                         and any(
-                            self.touch_history[i][0] == "ufb" for i in range(-70, -50)
+                            self.touch_history[i][0] == "ufb" for i in range(-60, -40)
                         )
                         and self.slopes[-1] < 0
                         and self.slopes_intra[-1] < self.slopes[-1]
-                        # and self.slopes_intra[-1] > 0
                     ):
                         self.buy()
                         self.sl_price = price * 0.992

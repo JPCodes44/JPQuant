@@ -10,7 +10,16 @@ from statsmodels.tsa.stattools import adfuller
 from run_it_back import run_backtest
 from statsmodels.sandbox.stats.runs import runstest_1samp
 
-DATA_FOLDER = "/Users/jpmak/JPQuant/data"
+TIMEFRAME = "m"
+DATA_FOLDER = (
+    "/Users/jpmak/JPQuant/data/1m_data"
+    if "m" in TIMEFRAME
+    else (
+        "/Users/jpmak/JPQuant/data/1h_data"
+        if "h" in TIMEFRAME
+        else "/Users/jpmak/JPQuant/data/1d_data"
+    )
+)
 
 SAVE_FOLDER = "/Users/jpmak/JPQuant/month2/results"
 
@@ -71,7 +80,7 @@ class MeanReversionStrategy(Strategy):
         # )
 
     def next(self):
-        tolerance = 0.09  # 0.1% tolerance, adjust as needed
+        tolerance = 0.007  # 0.1% tolerance, adjust as needed
         if self.data.Close[-1] <= self.min_low[-1] * (1 + tolerance):
             if not self.position:
                 self.buy()
@@ -80,4 +89,4 @@ class MeanReversionStrategy(Strategy):
                 self.position.close()
 
 
-run_backtest(MeanReversionStrategy)
+run_backtest(MeanReversionStrategy, DATA_FOLDER)
