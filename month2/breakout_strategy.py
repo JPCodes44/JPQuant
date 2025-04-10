@@ -271,10 +271,11 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         if not self.position:
             if self.new_channel_started:
                 # Breakout trigger: price crosses above upper band but slope is still bearish
-                # for zones, use any for short ranges and use all for big ranges
+                # use any for ufa, ufb, lfb, lfa because they only check if a band is touching, if u want to check liquidity,
+                # do a combination of both ufa ufb or lfa lfb and a sum() to check how many values fit the if criteria
                 if len(self.touch_history) > 70:
                     if (
-                        all(self.touch_history[j][0] == "ufa" for j in range(-9, -1))
+                        any(self.touch_history[j][0] == "ufa" for j in range(-9, -1))
                         and any(
                             self.touch_history[i][0] == "ufb" for i in range(-15, -10)
                         )
