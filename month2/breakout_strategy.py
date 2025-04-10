@@ -18,12 +18,12 @@ DATA_FOLDER = (
 
 class SegmentedRegressionWithFinalFitBands(Strategy):
     # Main channel settings
-    lookback = 50
-    min_channel_length = 30
+    lookback = 250
+    min_channel_length = 230
 
     # Intra channel settings
-    lookback_intra = 5
-    min_channel_length_intra = 10
+    lookback_intra = 50
+    min_channel_length_intra = 40
 
     # If close price is too far from the close price, the channel will be redrawn temporary with a new lookback
     lookback_temp = 5
@@ -158,29 +158,58 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         )
 
     def next(self):
-        def get_slope(band, slopes, precision):
+        def get_slope(band, slopes_selected, slopes_intra_selected, precision):
+            """
+            Appends a slope value to either self.slopes or self.slopes_intra
+            depending on which Boolean is set to True.
+            """
             if not np.isnan(band[-1]) and not np.isnan(band[-2]):
                 change_y = band[-1] - band[-2]
-                change_x = len(band) - (len(band) - 1)
+                change_x = 1  # effectively len(band)-(len(band)-1)
                 slope = float(f"{(change_y / change_x):{precision}f}")
-                slopes = np.append(slopes, slope)
-            else:
-                if len(slopes) > 1:
-                    slopes = np.append(slopes, slopes[-1])
-            return slopes
 
-        def start_looking(band, slope_array_name, precision):
-            # 1) Update the slope array
-            updated = get_slope(band, slope_array_name, precision)
-            # 2) Store it back
-            if slope_array_name is self.slopes:
-                self.slopes = updated
-            else:
-                self.slopes_intra = updated
+                if slopes_selected:
+                    self.slopes = np.append(self.slopes, slope)
+                elif slopes_intra_selected:
+                    self.slopes_intra = np.append(self.slopes_intra, slope)
 
-        start_looking(self.lower_band, self.slopes, 0.5)
-        start_looking(self.lower_band_intra, self.slopes_intra, 0.8)
-        print(self.slopes)
+            else:
+                # Either band[-1] or band[-2] is NaN => fallback: repeat last slope
+                if slopes_selected:
+                    if len(self.slopes) > 1:
+                        self.slopes = np.append(self.slopes, self.slopes[-1])
+                elif slopes_intra_selected:
+                    if len(self.slopes_intra) > 1:
+                        self.slopes_intra = np.append(
+                            self.slopes_intra, self.slopes_intra[-1]
+                        )
+
+        def start_looking(band, slopes_selected, slopes_intra_selected, precision):
+            """
+            Wrapper that calls get_slope with user-defined flags and then checks
+            whether a new channel started.
+            """
+            get_slope(
+                band,
+                slopes_selected=slopes_selected,
+                slopes_intra_selected=slopes_intra_selected,
+                precision=precision,
+            )
+
+            # Example logic to detect a "new channel start"
+            if not self.new_channel_started:
+                # Checking self.slopes here, but you could also check self.slopes_intra
+                if slopes_selected:
+                    if len(self.slopes) > 1:
+                        if self.slopes[-1] != self.slopes[-2]:
+                            self.new_channel_started = True
+                elif slopes_intra_selected:
+                    if len(self.slopes_intra) > 1:
+                        if self.slopes_intra[-1] != self.slopes_intra[-2]:
+                            self.new_channel_started = True
+
+        start_looking(self.lower_band, True, False, 0.5)
+        start_looking(self.lower_band_intra, False, True, 0.8)
 
         # Assume bands and prices are not nan
         price = self.data.Close[-1]
@@ -200,13 +229,13 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                 self.touch_history.append(("lfb", index, close))
 
             # Upper band touch
-            if prev_close < upper_band and close >= upper_band:
+            elif prev_close < upper_band and close >= upper_band:
                 self.touch_history.append(("ufb", index, close))
             elif prev_close > upper_band and close <= upper_band:
                 self.touch_history.append(("ufa", index, close))
 
             # Upper band touches
-            if close > upper_band:
+            elif close > upper_band:
                 if prev_close < upper_band:
                     self.touch_history.append(
                         ("ufb", self.data.index[-1], close)
@@ -215,26 +244,49 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                     self.touch_history.append(
                         ("ufa", self.data.index[-1], close)
                     )  # continued above
+                else:
+                    self.touch_history.append(
+                        ("ac", self.data.index[-1], close)
+                    )  # continued above
+
+            elif close < upper_band and close > lower_band:
+                self.touch_history.append(
+                    ("mid", self.data.index[-1], close)
+                )  # continued above
+
+            elif close < lower_band:
+                self.touch_history.append(
+                    ("bc", self.data.index[-1], close)
+                )  # continued above
 
         if not self.position:
             if self.new_channel_started:
                 # Breakout trigger: price crosses above upper band but slope is still bearish
-                if len(self.touch_history) > 5:
+                if len(self.touch_history) > 70:
                     if (
-                        all(self.touch_history[j][0] == "ufa" for j in range(-2, -1))
-                        and all(
-                            self.touch_history[i][0] == "ufb" for i in range(-5, -3)
+                        all(self.touch_history[j][0] == "ufa" for j in range(-9, -1))
+                        and any(
+                            self.touch_history[i][0] == "ufb" for i in range(-15, -10)
+                        )
+                        and all
+                        and any(
+                            self.touch_history[i][0] == "ufb" for i in range(-70, -50)
                         )
                         and self.slopes[-1] < 0
-                        and self.slopes_intra[-1] > 0
+                        and self.slopes_intra[-1] < self.slopes[-1]
+                        # and self.slopes_intra[-1] > 0
                     ):
                         self.buy()
                         self.sl_price = price * 0.992
-                        self.target_price = price * 1.008
+                        self.target_price = price * 1.07
 
         elif self.position:
             # Exit logic: either stop loss or target profit hit
-            if price >= self.target_price or price <= self.sl_price:
+            if (
+                price >= self.target_price
+                or price <= self.sl_price
+                or price < self.upper_band[-1]
+            ):
                 self.position.close()
                 self.new_channel_started = False
 
