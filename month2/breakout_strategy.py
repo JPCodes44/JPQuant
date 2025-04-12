@@ -1,8 +1,10 @@
 import numpy as np
 from backtesting import Strategy
+from backtesting.lib import crossover
 from run_it_back import run_backtest
 from sklearn.linear_model import LinearRegression
 from scipy.signal import find_peaks
+from matplotlib import pyplot as plt
 import talib as ta
 
 TIMEFRAME = "m"
@@ -19,12 +21,12 @@ DATA_FOLDER = (
 
 class SegmentedRegressionWithFinalFitBands(Strategy):
     # Main channel settings
-    lookback = 250
-    min_channel_length = 230
+    lookback = 150
+    min_channel_length = 130
 
     # Intra channel settings
-    lookback_intra = 50
-    min_channel_length_intra = 40
+    lookback_intra = 40
+    min_channel_length_intra = 30
 
     # If close price is too far from the close price, the channel will be redrawn temporary with a new lookback
     lookback_temp = 5
@@ -35,6 +37,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
     slopes = []
     slopes_intra = []
     touch_history = []
+    touch_history_intra = []
     stop_hit_already = False
     new_channel_started = False
 
@@ -43,6 +46,10 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
     n2 = 20
 
     def init(self):
+
+        def channel_zone_divider(upper, lower, ratio):
+            return lower + (upper - lower) * ratio
+
         def detect_spike_peak(close, i, window, prominence):
             if i < window:
                 return False
@@ -166,6 +173,62 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             self.min_channel_length_intra,
         )
 
+        # ZONE INDICATORS
+        self.zone10 = self.I(
+            channel_zone_divider,
+            self.upper_band,
+            self.lower_band,
+            0.10,
+        )
+        self.zone20 = self.I(
+            channel_zone_divider,
+            self.upper_band,
+            self.lower_band,
+            0.20,
+        )
+        self.zone30 = self.I(
+            channel_zone_divider,
+            self.upper_band,
+            self.lower_band,
+            0.30,
+        )
+        self.zone40 = self.I(
+            channel_zone_divider,
+            self.upper_band,
+            self.lower_band,
+            0.40,
+        )
+        self.zone50 = self.I(
+            channel_zone_divider,
+            self.upper_band,
+            self.lower_band,
+            0.50,
+        )
+        self.zone60 = self.I(
+            channel_zone_divider,
+            self.upper_band,
+            self.lower_band,
+            0.60,
+        )
+        self.zone70 = self.I(
+            channel_zone_divider,
+            self.upper_band,
+            self.lower_band,
+            0.70,
+        )
+        self.zone80 = self.I(
+            channel_zone_divider,
+            self.upper_band,
+            self.lower_band,
+            0.80,
+        )
+        self.zone90 = self.I(
+            channel_zone_divider,
+            self.upper_band,
+            self.lower_band,
+            0.90,
+        )
+
     def next(self):
         def get_slope(band, slopes_selected, slopes_intra_selected, precision):
             """
@@ -268,29 +331,40 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                     ("bc", self.data.index[-1], close)
                 )  # continued above
 
+        def head_and_shoulder_logic(ufa_range, ufb_range, mid_range, ufb_range_after):
+            if len(self.touch_history) > abs(ufb_range_after[0] - 1):
+                if (
+                    any(self.touch_history[j][0] == "ufa" for j in range(*ufa_range))
+                    and any(
+                        self.touch_history[i][0] == "ufb" for i in range(*ufb_range)
+                    )
+                    and all(
+                        (self.touch_history[i][0] == "mid") for i in range(*mid_range)
+                    )
+                    and any(
+                        (self.data.Close[i] < self.zone80[i]) for i in range(*mid_range)
+                    )
+                    and any(
+                        (self.data.Close[i] > self.zone70[i]) for i in range(*mid_range)
+                    )
+                    and any(
+                        self.touch_history[i][0] == "ufb"
+                        for i in range(*ufb_range_after)
+                    )
+                    and self.slopes[-1] < 0
+                    and self.slopes_intra[-1] < self.slopes[-1]
+                ):
+                    self.buy()
+                    self.sl_price = price * 0.992
+                    self.target_price = price * 1.07
+
         if not self.position:
             if self.new_channel_started:
                 # Breakout trigger: price crosses above upper band but slope is still bearish
                 # use any for ufa, ufb, lfb, lfa because they only check if a band is touching, if u want to check liquidity,
                 # do a combination of both ufa ufb or lfa lfb and a sum() to check how many values fit the if criteria
-                if len(self.touch_history) > 70:
-                    if (
-                        any(self.touch_history[j][0] == "ufa" for j in range(-9, -1))
-                        and any(
-                            self.touch_history[i][0] == "ufb" for i in range(-15, -10)
-                        )
-                        and all(
-                            self.touch_history[i][0] == "mid" for i in range(-16, -69)
-                        )
-                        and any(
-                            self.touch_history[i][0] == "ufb" for i in range(-100, -70)
-                        )
-                        and self.slopes[-1] < 0
-                        and self.slopes_intra[-1] < self.slopes[-1]
-                    ):
-                        self.buy()
-                        self.sl_price = price * 0.992
-                        self.target_price = price * 1.07
+
+                head_and_shoulder_logic((-4, -1), (-10, -5), (-20, -11), (-40, -21))
 
         elif self.position:
             # Exit logic: either stop loss or target profit hit
@@ -298,6 +372,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                 price >= self.target_price
                 or price <= self.sl_price
                 or price < self.upper_band[-1]
+                or crossover(self.sma1, self.sma2)
             ):
                 self.position.close()
                 self.new_channel_started = False
