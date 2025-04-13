@@ -331,11 +331,6 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                     ("bc", self.data.index[-1], close)
                 )  # continued above
 
-            elif close > upper_band:
-                self.touch_history.append(
-                    ("ac", self.data.index[-1], close)
-                )  # continued above
-
         def head_and_shoulder_logic(
             ufa_range_after, ufb_range_after, mid_range, ufb_range_before
         ):
