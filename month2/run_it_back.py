@@ -1,8 +1,11 @@
 import os
-from backtesting import Backtest
+from backtesting import Backtest, Pool
 import warnings
 import pandas as pd
 import random
+
+# Force thread mode
+Pool = None
 
 
 def run_backtest(
