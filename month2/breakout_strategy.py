@@ -20,15 +20,17 @@ DATA_FOLDER = (
 
 class SegmentedRegressionWithFinalFitBands(Strategy):
     # Main channel and intra-channel lookback configurations
-    lookback = 100
-    min_channel_length = 80
-    cooldown = 80
-    gap_size = 5
+    lookback = 40  # Enough bars for full H&S development
+    min_channel_length = (
+        100  # Forces channel to live long enough for patterns to complete
+    )
+    cooldown = 30  # Still allows relatively quick redraw after breakout
+    gap_size = 3  # Visible but not excessive
 
-    lookback_intra = 20
-    min_channel_length_intra = 80
-    cooldown_intra = 3
-    gap_size_intra = 1
+    lookback_intra = 5  # Small, reactive short-term channel
+    min_channel_length_intra = 40  # Short lifespan for quick response
+    cooldown_intra = 30  # Fast redraws allowed
+    gap_size_intra = 1  # No gaps on intra, keep it flowing
 
     # Touch pattern ranges for head-and-shoulders pattern detection
     ufa_range_after_long = (-8, -1)
