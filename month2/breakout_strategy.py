@@ -20,10 +20,15 @@ DATA_FOLDER = (
 
 class SegmentedRegressionWithFinalFitBands(Strategy):
     # Main channel and intra-channel lookback configurations
-    lookback = 50
-    min_channel_length = 35
-    lookback_intra = 8
-    min_channel_length_intra = 15
+    lookback = 100
+    min_channel_length = 80
+    cooldown = 80
+    gap_size = 5
+
+    lookback_intra = 20
+    min_channel_length_intra = 80
+    cooldown_intra = 3
+    gap_size_intra = 1
 
     # Touch pattern ranges for head-and-shoulders pattern detection
     ufa_range_after_long = (-8, -1)
@@ -45,23 +50,65 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
     def init(self):
         # Channel calculation using linear regression + residual extremes
-        def channel_calc(lookback, close, open, is_upper, min_len):
-            result = np.full_like(close, np.nan)
-            model, residuals, age, drawn = None, None, 0, False
+        def channel_calc(lookback, close, open, is_upper, min_len, cooldown, gap_size):
+            upper_band = np.full_like(close, np.nan)
+            lower_band = np.full_like(close, np.nan)
+            result_arr = np.full_like(close, np.nan)
+
+            model, residuals, age = None, None, 0
+            temp_cooldown = cooldown
+            drawn = False
+            broken = False
+
             for i in range(lookback, len(close)):
-                if not drawn:
+                should_redraw = not drawn or (broken and temp_cooldown >= cooldown)
+
+                if should_redraw:
+                    # 👇 Insert gap before drawing new channel
+                    if broken and temp_cooldown >= cooldown:
+                        for j in range(i - gap_size, i):
+                            if 0 <= j < len(result_arr):
+                                result_arr[j] = np.nan
+
+                    # Fit new regression channel
                     X = np.arange(i - lookback, i).reshape(-1, 1)
                     y = (open[i - lookback : i] + close[i - lookback : i]) / 2
                     model = LinearRegression().fit(X, y)
-                    residuals = close[i - lookback : i] - model.predict(X)
-                    drawn, age = True, 0
-                elif age > min_len:
+                    preds = model.predict(X)
+                    residuals = close[i - lookback : i] - preds
+                    drawn = True
+                    broken = False
+                    age = 0
+                    temp_cooldown = 0
+
+                if not drawn:
+                    if broken:
+                        temp_cooldown += 1
+                    continue
+
+                # Check breakout
+                if not np.isnan(upper_band[i - 1]) and not np.isnan(lower_band[i - 1]):
+                    if close[i] > upper_band[i - 1] or close[i] < lower_band[i - 1]:
+                        broken = True
+
+                if broken:
+                    temp_cooldown += 1
+
+                if age >= min_len:
                     drawn = False
                     continue
-                y_ext = model.predict(np.array([[i]])).flatten()
-                result[i] = y_ext + (residuals.max() if is_upper else residuals.min())
+
+                # Predict and assign current band value
+                y_pred = model.predict(np.array([[i]])).flatten()[0]
+                upper_val = y_pred + residuals.max()
+                lower_val = y_pred + residuals.min()
+                upper_band[i] = upper_val
+                lower_band[i] = lower_val
                 age += 1
-            return result
+
+                result_arr[i] = upper_val if is_upper else lower_val
+
+            return result_arr
 
         # Calculates an intermediate level between upper/lower bands
         def channel_div(upper, lower, ratio):
@@ -79,6 +126,8 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             self.data.Open,
             True,
             self.min_channel_length,
+            self.cooldown,
+            self.gap_size,
         )
         self.lower_band = self.I(
             channel_calc,
@@ -87,6 +136,8 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             self.data.Open,
             False,
             self.min_channel_length,
+            self.cooldown,
+            self.gap_size,
         )
 
         # Intra (shorter-term) regression channel
@@ -97,6 +148,8 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             self.data.Open,
             True,
             self.min_channel_length_intra,
+            self.cooldown_intra,
+            self.gap_size_intra,
         )
         self.lower_band_intra = self.I(
             channel_calc,
@@ -105,6 +158,8 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             self.data.Open,
             False,
             self.min_channel_length_intra,
+            self.cooldown_intra,
+            self.gap_size_intra,
         )
 
         # ZONE INDICATORS: levels between bands at fixed ratios
