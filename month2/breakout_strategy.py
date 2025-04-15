@@ -30,7 +30,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
     lookback_intra = 5  # Small, reactive short-term channel
     min_channel_length_intra = 40  # Short lifespan for quick response
     cooldown_intra = 30  # Fast redraws allowed
-    gap_size_intra = 1  # lil gap
+    gap_size_intra = 1  # lil gapy
 
     # Touch pattern ranges for head-and-shoulders pattern detection
     ufa_range_after_long = (-8, -1)
