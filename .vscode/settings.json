@@ -17,6 +17,8 @@
         "Calmar",
         "ccxt",
         "cerebro",
+        "conds",
+        "cooldown",
         "doji",
         "dotenv",
         "dropna",
@@ -36,6 +38,7 @@
         "pfast",
         "phemex",
         "polyfit",
+        "preds",
         "pslow",
         "reinitailize",
         "resis",
@@ -50,6 +53,7 @@
         "talib",
         "timeperiod",
         "todate",
+        "Touchpoint",
         "trendline",
         "txamount"
     ]
