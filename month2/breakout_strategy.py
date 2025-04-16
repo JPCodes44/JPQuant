@@ -19,14 +19,43 @@ DATA_FOLDER = (
 
 
 class SegmentedRegressionWithFinalFitBands(Strategy):
-    min_channel_length = 60  # lives a little longer
-    cooldown = 10  # quick redraw still allowed
-    gap_size = 1  # clean visual gap
-    volatility_window = 10  # slightly more smoothing
-    min_lb = 3  # longer base fits = broader structure
-    max_lb = 30  # allows wide-ranging bands
-    slope_window = 10  # still responsive to local moves
-    slope_sensitivity = 5  # slope still tightens lookback quickly when needed
+    min_channel_length = (
+        400  # ⏳ Minimum bars a channel must last before being eligible for redraw.
+    )
+    # Too high = channels persist too long, ignoring new structure.
+    # Too low  = redraws too frequently, reacts to noise.
+
+    cooldown = 1  # 🔁 Bars to wait after a breakout before a new channel can form.
+    # Too high = slow response to breakouts.
+    # Too low  = may overreact and redraw too often.
+
+    gap_size = (
+        1  # 🔲 Number of bars to insert as NaN between broken and redrawn channels.
+    )
+    # Too high = creates large gaps in chart, losing visual continuity.
+    # Too low  = may clutter the chart if redraws are frequent.
+
+    volatility_window = 200  # 📉 Number of bars used to smooth volatility calculation (e.g., for adaptive lookback).
+    # Too high = too smooth, misses local volatility shifts.
+    # Too low  = overreacts to short-term noise.
+
+    min_lb = 2  # 📏 Minimum allowed lookback for regression fit.
+    # Too high = can't fit channels on small moves; more rigid.
+    # Too low  = unstable or noisy regressions.
+
+    max_lb = 150  # 📏 Maximum allowed lookback for regression fit.
+    # Too high = overly wide channels, slow to adapt.
+    # Too low  = tight channels that may miss bigger structures.
+
+    slope_window = 5  # 📐 Bars over which to calculate slope for adapting lookback.
+    # Too high = slope too smoothed, laggy response.
+    # Too low  = jittery slope signal, erratic lookback shifts.
+
+    slope_sensitivity = (
+        50  # 🎚️ How aggressively steep slopes shorten the lookback window.
+    )
+    # Too high = lookback shrinks too fast on small slopes; very reactive.
+    # Too low  = lookback hardly changes with slope; less adaptive.
 
     min_channel_length_intra = 30
     cooldown_intra = 20
@@ -37,10 +66,10 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
     slope_window_intra = 2
 
     # Touch pattern ranges for head-and-shoulders pattern detection
-    ufa_range_after_long = (-4, -1)
+    ufb_range_before_long = (-4, -1)
     mid_range_long = (-9, -5)
-    ufb_range_before_long = (-13, -10)
-    ufb_range_after_long = (-17, -14)
+    ufa_range_after_long = (-10, -15)
+    ufb_range_after_long = (-20, -17)
 
     # Trade and state variables
     sl_price = 0

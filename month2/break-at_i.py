@@ -19,28 +19,24 @@ DATA_FOLDER = (
 
 
 class SegmentedRegressionWithFinalFitBands(Strategy):
-    min_channel_length = 60  # lives a little longer
-    cooldown = 10  # quick redraw still allowed
-    gap_size = 1  # clean visual gap
-    volatility_window = 10  # slightly more smoothing
-    min_lb = 3  # longer base fits = broader structure
-    max_lb = 30  # allows wide-ranging bands
-    slope_window = 10  # still responsive to local moves
-    slope_sensitivity = 5  # slope still tightens lookback quickly when needed
+    # Main channel and intra-channel lookback configurations
+    lookback = 40  # Enough bars for full H&S development
+    min_channel_length = (
+        100  # Forces channel to live long enough for patterns to complete
+    )
+    cooldown = 30  # Still allows relatively quick redraw after breakout
+    gap_size = 3  # Visible but not excessive
 
-    min_channel_length_intra = 30
-    cooldown_intra = 20
-    gap_size_intra = 1
-    volatility_window_intra = 8
-    min_lb_intra = 5
-    max_lb_intra = 15
-    slope_window_intra = 2
+    lookback_intra = 5  # Small, reactive short-term channel
+    min_channel_length_intra = 40  # Short lifespan for quick response
+    cooldown_intra = 30  # Fast redraws allowed
+    gap_size_intra = 1  # No gaps on intra, keep it flowing
 
     # Touch pattern ranges for head-and-shoulders pattern detection
-    ufa_range_after_long = (-4, -1)
-    mid_range_long = (-9, -5)
-    ufb_range_before_long = (-13, -10)
-    ufb_range_after_long = (-17, -14)
+    ufa_range_after_long = (-8, -1)
+    mid_range_long = (-15, -6)
+    ufb_range_before_long = (-20, -16)
+    ufb_range_after_long = (-25, -22)
 
     # Trade and state variables
     sl_price = 0
@@ -51,57 +47,12 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
     new_channel_started = False
 
     # EMA parameters
-    n1 = 20
-    n2 = 50
+    n1 = 5
+    n2 = 20
 
     def init(self):
-
-        def get_recent_slope(close, i, slope_window):
-            if i < slope_window + 1:
-                return 0
-            x = np.arange(i - slope_window, i).reshape(-1, 1)
-            y = close[i - slope_window : i]
-            model = LinearRegression().fit(x, y)
-            return model.coef_[0]
-
-        def dynamic_lookback(
-            close, i, min_lb, max_lb, volatility_window, slope_window, slope_sensitivity
-        ):
-            if i < max(volatility_window + 1, slope_window + 1):
-                return min_lb
-
-            past_close = close[i - volatility_window : i]
-            returns = np.diff(past_close) / past_close[:-1]
-            std = max(np.std(returns), 1e-4)
-
-            slope = get_recent_slope(close, i, slope_window)
-            slope_factor = 1 / (1 + slope_sensitivity * abs(slope))
-
-            # NEW FORMULA
-            # Base = max_lb when std is low (chill market)
-            # Base = min_lb when std is high (volatile af)
-            base = max_lb - (max_lb - min_lb) * (1 - slope_factor)
-
-            adjusted = base * slope_factor
-
-            lookback = int(np.clip(adjusted, min_lb, max_lb))
-
-            return lookback
-
         # Channel calculation using linear regression + residual extremes
-        def channel_calc(
-            close,
-            open,
-            is_upper,
-            min_len,
-            cooldown,
-            gap_size,
-            volatility_window,
-            min_lb,
-            max_lb,
-            slope_window,
-            slope_sensitivity,
-        ):
+        def channel_calc(lookback, close, open, is_upper, min_len, cooldown, gap_size):
             upper_band = np.full_like(close, np.nan)
             lower_band = np.full_like(close, np.nan)
             result_arr = np.full_like(close, np.nan)
@@ -111,38 +62,22 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             drawn = False
             broken = False
 
-            min_start = max(volatility_window + 1, max_lb)
-
-            for i in range(min_start, len(close)):
-                lookback = dynamic_lookback(
-                    close,
-                    i,
-                    min_lb,
-                    max_lb,
-                    volatility_window,
-                    slope_window,
-                    slope_sensitivity,
-                )
-
-                if i < lookback:
-                    continue
-
+            for i in range(lookback, len(close)):
                 should_redraw = not drawn or (broken and temp_cooldown >= cooldown)
 
                 if should_redraw:
-                    # Optional: insert visual gap when channel is redrawn
+                    # 👇 Insert gap before drawing new channel
                     if broken and temp_cooldown >= cooldown:
                         for j in range(i - gap_size, i):
                             if 0 <= j < len(result_arr):
                                 result_arr[j] = np.nan
 
-                    # Fit regression model on the adjusted lookback window
+                    # Fit new regression channel
                     X = np.arange(i - lookback, i).reshape(-1, 1)
                     y = (open[i - lookback : i] + close[i - lookback : i]) / 2
                     model = LinearRegression().fit(X, y)
                     preds = model.predict(X)
                     residuals = close[i - lookback : i] - preds
-
                     drawn = True
                     broken = False
                     age = 0
@@ -153,7 +88,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                         temp_cooldown += 1
                     continue
 
-                # Check for breakout above upper or below lower band
+                # Check breakout
                 if not np.isnan(upper_band[i - 1]) and not np.isnan(lower_band[i - 1]):
                     if close[i] > upper_band[i - 1] or close[i] < lower_band[i - 1]:
                         broken = True
@@ -165,7 +100,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                     drawn = False
                     continue
 
-                # Extend the current channel forward
+                # Predict and assign current band value
                 y_pred = model.predict(np.array([[i]])).flatten()[0]
                 upper_val = y_pred + residuals.max()
                 lower_val = y_pred + residuals.min()
@@ -186,66 +121,47 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         self.sma2 = self.I(ta.EMA, self.data.Close, self.n2)
 
         # Main regression channel
-
         self.upper_band = self.I(
             channel_calc,
+            self.lookback,
             self.data.Close,
             self.data.Open,
             True,
             self.min_channel_length,
             self.cooldown,
             self.gap_size,
-            self.volatility_window,
-            self.min_lb,
-            self.max_lb,
-            self.slope_window,
-            self.slope_sensitivity,
         )
-
         self.lower_band = self.I(
             channel_calc,
+            self.lookback,
             self.data.Close,
             self.data.Open,
             False,
             self.min_channel_length,
             self.cooldown,
             self.gap_size,
-            self.volatility_window,
-            self.min_lb,
-            self.max_lb,
-            self.slope_window,
-            self.slope_sensitivity,
         )
 
         # Intra (shorter-term) regression channel
         self.upper_band_intra = self.I(
             channel_calc,
+            self.lookback_intra,
             self.data.Close,
             self.data.Open,
             True,
             self.min_channel_length_intra,
             self.cooldown_intra,
             self.gap_size_intra,
-            self.volatility_window_intra,
-            self.min_lb_intra,
-            self.max_lb_intra,
-            self.slope_window_intra,
-            self.slope_sensitivity,
         )
-
         self.lower_band_intra = self.I(
             channel_calc,
+            self.lookback_intra,
             self.data.Close,
             self.data.Open,
             False,
             self.min_channel_length_intra,
             self.cooldown_intra,
             self.gap_size_intra,
-            self.volatility_window_intra,
-            self.min_lb_intra,
-            self.max_lb_intra,
-            self.slope_window_intra,
-            self.slope_sensitivity,
         )
 
         # ZONE INDICATORS: levels between bands at fixed ratios
@@ -335,14 +251,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
         # Entry and exit logic
         if not self.position and self.new_channel_started:
-            # head_and_shoulders()
-            if (
-                price > self.upper_band[-1]
-                and self.slopes[-1] < 0
-                and self.slopes_intra[-1] < self.slopes[-1]
-            ):
-                head_and_shoulders()
-
+            head_and_shoulders()
         elif self.position and (
             price >= self.target_price or crossover(self.sma1, self.sma2)
         ):
