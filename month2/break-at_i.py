@@ -261,4 +261,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
 # Run the backtest
 if __name__ == "__main__":
-    run_backtest(SegmentedRegressionWithFinalFitBands, DATA_FOLDER)
+    run_backtest(
+        SegmentedRegressionWithFinalFitBands,
+        DATA_FOLDER,
+    )

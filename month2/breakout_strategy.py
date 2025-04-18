@@ -4,6 +4,11 @@ from backtesting.lib import crossover
 from run_it_back import run_backtest
 from sklearn.linear_model import LinearRegression
 import talib as ta
+from pattern_agent import ask_agent_if_head_and_shoulders
+from mcp_agent_tinyllama import optimize_params
+import os
+import pandas as pd
+
 
 # Define the data folder depending on the timeframe
 TIMEFRAME = "m"
@@ -18,44 +23,29 @@ DATA_FOLDER = (
 )
 
 
+param_ranges = {
+    "min_channel_length": range(300, 1000, 100),
+    "volatility_window": range(300, 1000, 100),
+    "min_lb": [2, 5],
+    "max_lb": range(50, 200, 25),
+    "slope_window": [3, 5, 7],
+    "slope_sensitivity": [5, 10, 20],
+}
+
+
 class SegmentedRegressionWithFinalFitBands(Strategy):
-    min_channel_length = (
-        400  # ⏳ Minimum bars a channel must last before being eligible for redraw.
-    )
-    # Too high = channels persist too long, ignoring new structure.
-    # Too low  = redraws too frequently, reacts to noise.
+    min_channel_length = 700
+    cooldown = 10
+    gap_size = 1
+    volatility_window = 700
+    min_lb = 2
+    max_lb = 200
+    slope_window = 5
+    slope_sensitivity = 10
 
-    cooldown = 1  # 🔁 Bars to wait after a breakout before a new channel can form.
-    # Too high = slow response to breakouts.
-    # Too low  = may overreact and redraw too often.
+    files = os.listdir(DATA_FOLDER)
 
-    gap_size = (
-        1  # 🔲 Number of bars to insert as NaN between broken and redrawn channels.
-    )
-    # Too high = creates large gaps in chart, losing visual continuity.
-    # Too low  = may clutter the chart if redraws are frequent.
-
-    volatility_window = 200  # 📉 Number of bars used to smooth volatility calculation (e.g., for adaptive lookback).
-    # Too high = too smooth, misses local volatility shifts.
-    # Too low  = overreacts to short-term noise.
-
-    min_lb = 2  # 📏 Minimum allowed lookback for regression fit.
-    # Too high = can't fit channels on small moves; more rigid.
-    # Too low  = unstable or noisy regressions.
-
-    max_lb = 150  # 📏 Maximum allowed lookback for regression fit.
-    # Too high = overly wide channels, slow to adapt.
-    # Too low  = tight channels that may miss bigger structures.
-
-    slope_window = 5  # 📐 Bars over which to calculate slope for adapting lookback.
-    # Too high = slope too smoothed, laggy response.
-    # Too low  = jittery slope signal, erratic lookback shifts.
-
-    slope_sensitivity = (
-        50  # 🎚️ How aggressively steep slopes shorten the lookback window.
-    )
-    # Too high = lookback shrinks too fast on small slopes; very reactive.
-    # Too low  = lookback hardly changes with slope; less adaptive.
+    DATA_FOLDER = "/Users/jpmak/JPQuant/data/1m_data"
 
     min_channel_length_intra = 30
     cooldown_intra = 20
@@ -67,9 +57,9 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
     # Touch pattern ranges for head-and-shoulders pattern detection
     ufb_range_before_long = (-4, -1)
-    mid_range_long = (-9, -5)
-    ufa_range_after_long = (-10, -15)
-    ufb_range_after_long = (-20, -17)
+    mid_range_long = (-34, -5)
+    ufa_range_after_long = (-39, -35)
+    ufb_range_after_long = (-44, -40)
 
     # Trade and state variables
     sl_price = 0
@@ -84,6 +74,12 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
     n2 = 50
 
     def init(self):
+
+        required = abs(self.ufb_range_after_long[0])
+        if self.min_channel_length < required:
+            raise ValueError(
+                f"min_channel_length={self.min_channel_length} too short. Needs ≥ {required} for H&S pattern."
+            )
 
         def get_recent_slope(close, i, slope_window):
             if i < slope_window + 1:
@@ -329,7 +325,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
         # Head and Shoulders pattern detection logic
         def head_and_shoulders():
-            if len(self.touch_history) < 25:
+            if len(self.touch_history) < abs(self.ufb_range_after_long[0]):
                 return
 
             close = self.data.Close
@@ -364,14 +360,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
         # Entry and exit logic
         if not self.position and self.new_channel_started:
-            # head_and_shoulders()
-            if (
-                price > self.upper_band[-1]
-                and self.slopes[-1] < 0
-                and self.slopes_intra[-1] < self.slopes[-1]
-            ):
-                head_and_shoulders()
-
+            head_and_shoulders()
         elif self.position and (
             price >= self.target_price or crossover(self.sma1, self.sma2)
         ):
@@ -379,6 +368,5 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             self.new_channel_started = False
 
 
-# Run the backtest
 if __name__ == "__main__":
-    run_backtest(SegmentedRegressionWithFinalFitBands, DATA_FOLDER)
+    run_backtest(SegmentedRegressionWithFinalFitBands, DATA_FOLDER, param_ranges)
