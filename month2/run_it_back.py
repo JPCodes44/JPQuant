@@ -8,10 +8,7 @@ import random
 Pool = None
 
 
-def run_backtest(
-    Strategy,
-    DATA_FOLDER,
-):
+def run_backtest(Strategy, DATA_FOLDER, param_ranges):
 
     SAVE_FOLDER = "/Users/jpmak/JPQuant/month2/results"
 
@@ -98,7 +95,17 @@ def run_backtest(
                 # Backtest
                 bt = Backtest(df, Strategy, cash=10000, commission=0.002)
 
-            results = bt.run()
+            # Optional: add constraint (e.g., min_lb must be < max_lb)
+            def constraint_func(params):
+                return params["min_lb"] < params["max_lb"]
+
+            results = bt.optimize(
+                **param_ranges,
+                method="sambo",
+                maximize="# Trades",  # or "Return [%]", "Sharpe Ratio", etc.
+                constraint=constraint_func,
+                return_heatmap=True,  # Optional: for plotting heatmaps later
+            )
             view_df.loc[len(view_df)] = [
                 results.iloc[0],
                 results.iloc[1],

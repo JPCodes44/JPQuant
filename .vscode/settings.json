@@ -52,6 +52,7 @@
         "strats",
         "talib",
         "timeperiod",
+        "tinyllama",
         "todate",
         "Touchpoint",
         "trendline",
