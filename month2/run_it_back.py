@@ -95,17 +95,19 @@ def run_backtest(Strategy, DATA_FOLDER, param_ranges):
                 # Backtest
                 bt = Backtest(df, Strategy, cash=10000, commission=0.002)
 
-            # Optional: add constraint (e.g., min_lb must be < max_lb)
-            def constraint_func(params):
-                return params["min_lb"] < params["max_lb"]
+                # Optional: add constraint (e.g., min_lb must be < max_lb)
+                def constraint_func(params):
+                    return params["min_lb"] < params["max_lb"]
 
-            results = bt.optimize(
-                **param_ranges,
-                method="sambo",
-                maximize="# Trades",  # or "Return [%]", "Sharpe Ratio", etc.
-                constraint=constraint_func,
-                return_heatmap=True,  # Optional: for plotting heatmaps later
-            )
+                results = bt.optimize(
+                    **param_ranges,
+                    method="sambo",
+                    max_tries=10,
+                    maximize="# Trades",  # or "Return [%]", "Sharpe Ratio", etc.
+                    constraint=constraint_func,
+                    return_heatmap=False,  # Optional: for plotting heatmaps later
+                )
+
             view_df.loc[len(view_df)] = [
                 results.iloc[0],
                 results.iloc[1],

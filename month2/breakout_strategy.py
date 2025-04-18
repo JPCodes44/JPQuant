@@ -24,12 +24,12 @@ DATA_FOLDER = (
 
 
 param_ranges = {
-    "min_channel_length": range(300, 1000, 100),
-    "volatility_window": range(300, 1000, 100),
+    "min_channel_length": range(300, 900, 300),
+    "volatility_window": range(300, 900, 300),
     "min_lb": [2, 5],
-    "max_lb": range(50, 200, 25),
-    "slope_window": [3, 5, 7],
-    "slope_sensitivity": [5, 10, 20],
+    "max_lb": range(50, 200, 50),
+    "slope_window": [3, 5],
+    "slope_sensitivity": [5, 10],
 }
 
 
