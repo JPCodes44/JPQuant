@@ -24,10 +24,10 @@ DATA_FOLDER = (
 
 
 param_ranges = {
-    "min_channel_length": range(300, 900, 300),
-    "volatility_window": range(300, 900, 300),
+    "min_channel_length": range(300, 900),
+    "volatility_window": range(300, 900),
     "min_lb": [2, 5],
-    "max_lb": range(50, 200, 50),
+    "max_lb": range(50, 200),
     "slope_window": [3, 5],
     "slope_sensitivity": [5, 10],
 }
@@ -35,7 +35,7 @@ param_ranges = {
 
 class SegmentedRegressionWithFinalFitBands(Strategy):
     min_channel_length = 700
-    cooldown = 10
+    cooldown = 20
     gap_size = 1
     volatility_window = 700
     min_lb = 2
@@ -43,17 +43,13 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
     slope_window = 5
     slope_sensitivity = 10
 
-    files = os.listdir(DATA_FOLDER)
-
-    DATA_FOLDER = "/Users/jpmak/JPQuant/data/1m_data"
-
     min_channel_length_intra = 30
-    cooldown_intra = 20
+    cooldown_intra = 50
     gap_size_intra = 1
     volatility_window_intra = 8
     min_lb_intra = 5
-    max_lb_intra = 15
-    slope_window_intra = 2
+    max_lb_intra = 20
+    slope_window_intra = 5
 
     # Touch pattern ranges for head-and-shoulders pattern detection
     ufb_range_before_long = (-4, -1)
@@ -360,7 +356,15 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
         # Entry and exit logic
         if not self.position and self.new_channel_started:
-            head_and_shoulders()
+            if (
+                price > self.upper_band
+                and self.slopes[-1] > self.slopes_intra[-1]
+                and self.slopes[-1] < 0
+            ):
+                self.buy()
+                self.sl_price = price * 0.992
+                self.target_price = price * 1.015
+
         elif self.position and (
             price >= self.target_price or crossover(self.sma1, self.sma2)
         ):
@@ -369,4 +373,4 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
 
 if __name__ == "__main__":
-    run_backtest(SegmentedRegressionWithFinalFitBands, DATA_FOLDER, param_ranges)
+    run_backtest(SegmentedRegressionWithFinalFitBands, DATA_FOLDER)
