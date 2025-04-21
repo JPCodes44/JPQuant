@@ -6,6 +6,7 @@ from sklearn.linear_model import LinearRegression
 import talib as ta
 from pattern_agent import ask_agent_if_head_and_shoulders
 from mcp_agent_tinyllama import optimize_params
+from scipy.signal import find_peaks, argrelextrema
 import os
 import pandas as pd
 
@@ -24,42 +25,32 @@ DATA_FOLDER = (
 
 
 param_ranges = {
-    "min_channel_length": range(300, 1000, 100),
-    "volatility_window": range(300, 1000, 100),
+    "min_channel_length": range(300, 900),
+    "volatility_window": range(300, 900),
     "min_lb": [2, 5],
-    "max_lb": range(50, 200, 25),
-    "slope_window": [3, 5, 7],
-    "slope_sensitivity": [5, 10, 20],
+    "max_lb": range(50, 200),
+    "slope_window": [3, 5],
+    "slope_sensitivity": [5, 10],
 }
 
 
 class SegmentedRegressionWithFinalFitBands(Strategy):
     min_channel_length = 700
-    cooldown = 10
+    cooldown = 30
     gap_size = 1
-    volatility_window = 700
-    min_lb = 2
-    max_lb = 200
+    volatility_window = 200
+    min_lb = 200
+    max_lb = 600
     slope_window = 5
-    slope_sensitivity = 10
-
-    files = os.listdir(DATA_FOLDER)
-
-    DATA_FOLDER = "/Users/jpmak/JPQuant/data/1m_data"
+    slope_sensitivity = 100
 
     min_channel_length_intra = 30
-    cooldown_intra = 20
+    cooldown_intra = 50
     gap_size_intra = 1
     volatility_window_intra = 8
     min_lb_intra = 5
-    max_lb_intra = 15
-    slope_window_intra = 2
-
-    # Touch pattern ranges for head-and-shoulders pattern detection
-    ufb_range_before_long = (-4, -1)
-    mid_range_long = (-34, -5)
-    ufa_range_after_long = (-39, -35)
-    ufb_range_after_long = (-44, -40)
+    max_lb_intra = 20
+    slope_window_intra = 5
 
     # Trade and state variables
     sl_price = 0
@@ -69,17 +60,16 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
     touch_history = []
     new_channel_started = False
 
+    # Rolling window trade parameters
+    lookback = 1000
+    distance = 5
+    prominence = 0.3
+
     # EMA parameters
     n1 = 20
     n2 = 50
 
     def init(self):
-
-        required = abs(self.ufb_range_after_long[0])
-        if self.min_channel_length < required:
-            raise ValueError(
-                f"min_channel_length={self.min_channel_length} too short. Needs ≥ {required} for H&S pattern."
-            )
 
         def get_recent_slope(close, i, slope_window):
             if i < slope_window + 1:
@@ -94,10 +84,6 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         ):
             if i < max(volatility_window + 1, slope_window + 1):
                 return min_lb
-
-            past_close = close[i - volatility_window : i]
-            returns = np.diff(past_close) / past_close[:-1]
-            std = max(np.std(returns), 1e-4)
 
             slope = get_recent_slope(close, i, slope_window)
             slope_factor = 1 / (1 + slope_sensitivity * abs(slope))
@@ -206,6 +192,65 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         def channel_div(upper, lower, ratio):
             return lower + (upper - lower) * ratio
 
+        def get_pattern_pv(peaks, prices, pattern, valleys, find_maxima):
+            if find_maxima:
+                for j in range(1, len(peaks) - 1):
+                    L, H, R = peaks[j - 1], peaks[j], peaks[j + 1]
+                    if prices[H] < prices[L] and prices[H] < prices[R]:
+                        if abs(prices[L] - prices[R]) < 0.2 * prices[H]:
+                            pattern.append((L, H, R))
+            else:
+                for j in range(1, len(valleys) - 1):
+                    L, H, R = valleys[j - 1], valleys[j], valleys[j + 1]
+                    if prices[H] > prices[L] and prices[H] > prices[R]:
+                        if abs(prices[L] - prices[R]) < 0.2 * prices[H]:
+                            pattern.append((L, H, R))
+            return pattern, peaks, valleys
+
+        def head_and_shoulder(close, lookback, distance, prominence, bearish):
+            arr = np.full(close.shape, np.nan, dtype=float)
+            R_arr = np.full(close.shape, np.nan)
+
+            for i in range(lookback, len(close)):
+                prices = np.asarray(close[i - lookback : i], dtype=np.float64)
+                prices = prices[~np.isnan(prices)]
+
+                peaks, _ = find_peaks(prices, distance, prominence)
+                # for local minima
+                valleys = argrelextrema(prices, np.less)[0]
+                pattern = []
+
+                pattern, peaks, valleys = get_pattern_pv(
+                    peaks, prices, pattern, valleys, bearish
+                )
+                for L, H, R in pattern:
+                    base = i - lookback
+                    arr[base + L] = close[base + L]
+                    arr[base + H] = close[base + H]
+                    arr[base + R] = close[base + R]
+                    R_arr[i] = base + R
+
+            return arr, R_arr
+
+        # Register indicators
+        self.hs_bullish, self.R_detected_bullish = self.I(
+            head_and_shoulder,
+            self.data.Close,
+            self.lookback,
+            self.distance,
+            self.prominence,
+            False,
+        )
+
+        self.hs_bearish, self.R_detected_bearish = self.I(
+            head_and_shoulder,
+            self.data.Close,
+            self.lookback,
+            self.distance,
+            self.prominence,
+            True,
+        )
+
         # EMA indicators for exit condition
         self.sma1 = self.I(ta.EMA, self.data.Close, self.n1)
         self.sma2 = self.I(ta.EMA, self.data.Close, self.n2)
@@ -285,6 +330,24 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         self.zone90 = self.I(channel_div, self.upper_band, self.lower_band, 0.90)
 
     def next(self):
+        def touchpoint_hist(touch_history, new_channel_started):
+            # Touchpoint classification logic (lfa, lfb, ufb, ufa, mid, bc)
+            if new_channel_started:
+                if prev_price > lb and price <= lb:
+                    touch_history.append(("lfa", index))
+                elif prev_price < lb and price >= lb:
+                    touch_history.append(("lfb", index))
+                elif prev_price < ub and price >= ub:
+                    touch_history.append(("ufb", index))
+                elif prev_price > ub and price <= ub or price > ub:
+                    touch_history.append(("ufa", index))
+                elif lb < price < ub:
+                    touch_history.append(("mid", index))
+                elif price < lb:
+                    touch_history.append(("bc", index))
+
+            return touch_history
+
         # Appends the slope of the most recent bar to the slope array
         def update_slope(band, storage):
             if not np.isnan(band[-1]) and not np.isnan(band[-2]):
@@ -308,59 +371,22 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         ):
             self.new_channel_started = True
 
-        # Touchpoint classification logic (lfa, lfb, ufb, ufa, mid, bc)
-        if self.new_channel_started:
-            if prev_price > lb and price <= lb:
-                self.touch_history.append(("lfa", index))
-            elif prev_price < lb and price >= lb:
-                self.touch_history.append(("lfb", index))
-            elif prev_price < ub and price >= ub:
-                self.touch_history.append(("ufb", index))
-            elif prev_price > ub and price <= ub or price > ub:
-                self.touch_history.append(("ufa", index))
-            elif lb < price < ub:
-                self.touch_history.append(("mid", index))
-            elif price < lb:
-                self.touch_history.append(("bc", index))
-
-        # Head and Shoulders pattern detection logic
-        def head_and_shoulders():
-            if len(self.touch_history) < abs(self.ufb_range_after_long[0]):
-                return
-
-            close = self.data.Close
-
-            conds = [
-                any(
-                    self.touch_history[i][0] == "ufb"
-                    for i in range(*self.ufb_range_before_long)
-                ),
-                any(close[i] < self.zone60[i] for i in range(*self.mid_range_long)),
-                all(
-                    self.touch_history[i][0] in ("mid", "bc")
-                    for i in range(*self.mid_range_long)
-                ),
-                any(close[i] > self.zone50[i] for i in range(*self.mid_range_long)),
-                any(
-                    self.touch_history[j][0] == "ufa"
-                    for j in range(*self.ufa_range_after_long)
-                ),
-                any(
-                    self.touch_history[i][0] == "ufb"
-                    for i in range(*self.ufb_range_after_long)
-                ),
-                self.slopes[-1] < 0,
-                self.slopes_intra[-1] < self.slopes[-1],
-                price >= ub,
-            ]
-            if all(conds):
-                self.buy()
-                self.sl_price = price * 0.992
-                self.target_price = price * 1.015
+        self.touch_history = touchpoint_hist(
+            self.touch_history, self.new_channel_started
+        )
 
         # Entry and exit logic
         if not self.position and self.new_channel_started:
-            head_and_shoulders()
+            if (
+                not np.isnan(self.R_detected_bullish[-1])
+                and price > self.upper_band
+                and self.slopes[-1] > self.slopes_intra[-1]
+                and self.slopes[-1] < 0
+            ):
+                self.buy()
+                self.sl_price = price * 0.95
+                self.target_price = price * 1.0015
+
         elif self.position and (
             price >= self.target_price or crossover(self.sma1, self.sma2)
         ):
@@ -369,4 +395,4 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
 
 if __name__ == "__main__":
-    run_backtest(SegmentedRegressionWithFinalFitBands, DATA_FOLDER, param_ranges)
+    run_backtest(SegmentedRegressionWithFinalFitBands, DATA_FOLDER)
