@@ -24,9 +24,9 @@ DATA_FOLDER = (
 
 
 class HeadAndShoulderStrategy(Strategy):
-    lookback = 50
+    lookback = 1000
     distance = 5
-    prominence = 0.02
+    prominence = 0.2
 
     n1 = 5
     n2 = 20
@@ -97,10 +97,10 @@ class HeadAndShoulderStrategy(Strategy):
             if not np.isnan(self.R_detected[-1]):
                 print("Pattern triggered at index:", self.R_detected[-1])
                 self.buy()
-                self.target_price = price * 1.015
+                self.target_price = price * 1.0015
 
         elif self.position:
-            if price >= self.target_price or crossover(self.sma1, self.sma2):
+            if price >= self.target_price:
                 self.position.close()
 
 
