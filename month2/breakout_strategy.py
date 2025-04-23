@@ -7,6 +7,7 @@ import talib as ta
 from pattern_agent import ask_agent_if_head_and_shoulders
 from mcp_agent_tinyllama import optimize_params
 from scipy.signal import find_peaks, argrelextrema
+from patternpy.tradingpatterns import head_and_shoulders
 import os
 import pandas as pd
 
