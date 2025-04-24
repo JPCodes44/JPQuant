@@ -4,12 +4,7 @@ from backtesting.lib import crossover
 from run_it_back import run_backtest
 from sklearn.linear_model import LinearRegression
 import talib as ta
-from pattern_agent import ask_agent_if_head_and_shoulders
-from mcp_agent_tinyllama import optimize_params
-from scipy.signal import find_peaks, argrelextrema
-from patternpy.tradingpatterns import head_and_shoulders
-import os
-import pandas as pd
+from detecta import detect_peaks
 
 
 # Define the data folder depending on the timeframe
@@ -63,8 +58,9 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
 
     # Rolling window trade parameters
     lookback = 1000
-    distance = 5
-    prominence = 0.3
+    min_prominence = 0.35
+    shoulder_tolerance = 0.09
+    R_index_prev = -1
 
     # EMA parameters
     n1 = 20
@@ -193,63 +189,124 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         def channel_div(upper, lower, ratio):
             return lower + (upper - lower) * ratio
 
-        def get_pattern_pv(peaks, prices, pattern, valleys, find_maxima):
-            if find_maxima:
-                for j in range(1, len(peaks) - 1):
-                    L, H, R = peaks[j - 1], peaks[j], peaks[j + 1]
-                    if prices[H] < prices[L] and prices[H] < prices[R]:
-                        if abs(prices[L] - prices[R]) < 0.2 * prices[H]:
+        def get_pattern(peaks, prices, pattern, shoulder_tolerance, valley):
+            for i in range(1, len(peaks) - 1):
+                L, H, R = peaks[i - 1], peaks[i], peaks[i + 1]
+
+                # Ensure valid index range
+                if max(L, H, R) >= len(prices):
+                    continue
+
+                left = prices[L]
+                head = prices[H]
+                right = prices[R]
+
+                # Head higher than both shoulders
+                if valley:
+                    if head < left and head < right:
+                        shoulder_diff = abs(left - right)
+
+                        if shoulder_diff <= shoulder_tolerance * head:
                             pattern.append((L, H, R))
-            else:
-                for j in range(1, len(valleys) - 1):
-                    L, H, R = valleys[j - 1], valleys[j], valleys[j + 1]
-                    if prices[H] > prices[L] and prices[H] > prices[R]:
-                        if abs(prices[L] - prices[R]) < 0.2 * prices[H]:
+
+                if not valley:
+                    if head > left and head > right:
+                        shoulder_diff = abs(left - right)
+
+                        if shoulder_diff <= shoulder_tolerance * head:
                             pattern.append((L, H, R))
-            return pattern, peaks, valleys
 
-        def head_and_shoulder(close, lookback, distance, prominence, bearish):
-            arr = np.full(close.shape, np.nan, dtype=float)
-            R_arr = np.full(close.shape, np.nan)
+            return pattern
 
-            for i in range(lookback, len(close)):
-                prices = np.asarray(close[i - lookback : i], dtype=np.float64)
-                prices = prices[~np.isnan(prices)]
+        def get_line(line, close, start, mid, end):
 
-                peaks, _ = find_peaks(prices, distance, prominence)
-                # for local minima
-                valleys = argrelextrema(prices, np.less)[0]
+            # 1) interpolate from left shoulder → head
+            seg1 = np.linspace(close[start], close[mid], mid - start + 1)
+            line[start : mid + 1] = seg1
+
+            # 2) interpolate from head → right shoulder
+            seg2 = np.linspace(close[mid], close[end], end - mid + 1)
+            line[mid : end + 1] = seg2
+
+            return line
+
+        def head_and_shoulder(close, lookback, min_prominence, shoulder_tolerance):
+            arr = np.full_like(close, np.nan)
+            R_arr = np.full_like(close, np.nan)
+            line = np.full_like(close, close[0])
+
+            # Detect peaks in the price data
+            for j in range(lookback, len(close)):
+
+                prices = close[j - lookback : j]
+
+                peaks = detect_peaks(prices, valley=True, threshold=min_prominence)
+
                 pattern = []
 
-                pattern, peaks, valleys = get_pattern_pv(
-                    peaks, prices, pattern, valleys, bearish
+                pattern = get_pattern(
+                    peaks,
+                    prices,
+                    pattern,
+                    shoulder_tolerance,
+                    True,
                 )
-                for L, H, R in pattern:
-                    base = i - lookback
-                    arr[base + L] = close[base + L]
-                    arr[base + H] = close[base + H]
-                    arr[base + R] = close[base + R]
-                    R_arr[i] = base + R
+
+                base = j - lookback
+
+                if pattern is not None:
+                    for L, H, R in pattern:
+                        # mark left shoulder, head, right shoulder
+                        start = base + L
+                        mid = base + H
+                        end = base + R
+                        arr[start] = close[start]
+                        arr[mid] = close[mid]
+                        arr[end] = close[end]
+                        # mark the right shoulder
+                        # if the right shoulder is not the same as the previous one
+                        # this is to avoid marking the same shoulder multiple times
+                        if self.R_index_prev != end:
+                            R_arr[end] = end
+
+                        # safety: skip if out of bounds
+                        if 0 <= start < mid < end < len(close):
+                            continue
+
+                        line = get_line(line, close, start, mid, end)
+
+            return arr, R_arr, line
+
+        def get_patterns_and_shit(close, lookback, min_prominence, shoulder_tolerance):
+            arr, R_arr, line = head_and_shoulder(
+                close, lookback, min_prominence, shoulder_tolerance
+            )
 
             return arr, R_arr
 
+        def get_line_and_shit(close, lookback, min_prominence, shoulder_tolerance):
+            arr, R_arr, line = head_and_shoulder(
+                close, lookback, min_prominence, shoulder_tolerance
+            )
+
+            return line
+
         # Register indicators
-        self.hs_bullish, self.R_detected_bullish = self.I(
-            head_and_shoulder,
+
+        self.hns_pattern, self.R_detected = self.I(
+            get_patterns_and_shit,
             self.data.Close,
             self.lookback,
-            self.distance,
-            self.prominence,
-            False,
+            self.min_prominence,
+            self.shoulder_tolerance,
         )
 
-        self.hs_bearish, self.R_detected_bearish = self.I(
-            head_and_shoulder,
+        self.line = self.I(
+            get_line_and_shit,
             self.data.Close,
             self.lookback,
-            self.distance,
-            self.prominence,
-            True,
+            self.min_prominence,
+            self.shoulder_tolerance,
         )
 
         # EMA indicators for exit condition
@@ -379,14 +436,14 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         # Entry and exit logic
         if not self.position and self.new_channel_started:
             if (
-                not np.isnan(self.R_detected_bullish[-1])
-                and price > self.upper_band
-                and self.slopes[-1] > self.slopes_intra[-1]
-                and self.slopes[-1] < 0
+                not np.isnan(self.R_detected[-1])
+                # and price > self.upper_band
+                # and self.slopes[-1] > self.slopes_intra[-1]
+                # and self.slopes[-1] < 0
             ):
                 self.buy()
                 self.sl_price = price * 0.95
-                self.target_price = price * 1.0015
+                self.target_price = price * 1.015
 
         elif self.position and (
             price >= self.target_price or crossover(self.sma1, self.sma2)
