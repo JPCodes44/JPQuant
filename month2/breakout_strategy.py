@@ -31,21 +31,21 @@ param_ranges = {
 
 
 class SegmentedRegressionWithFinalFitBands(Strategy):
-    min_channel_length = 700
-    cooldown = 30
+    min_channel_length = 400
+    cooldown = 130
     gap_size = 1
     volatility_window = 200
-    min_lb = 200
-    max_lb = 600
+    min_lb = 70
+    max_lb = 100
     slope_window = 5
     slope_sensitivity = 100
 
-    min_channel_length_intra = 30
+    min_channel_length_intra = 40
     cooldown_intra = 50
     gap_size_intra = 1
     volatility_window_intra = 8
-    min_lb_intra = 5
-    max_lb_intra = 20
+    min_lb_intra = 10
+    max_lb_intra = 80
     slope_window_intra = 5
 
     # Trade and state variables
@@ -56,11 +56,15 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
     touch_history = []
     new_channel_started = False
 
-    # Rolling window trade parameters
-    lookback = 1000
-    min_prominence = 0.35
-    shoulder_tolerance = 0.09
-    R_index_prev = -1
+    # 🔎 Large inverse H&S (few-hundred-bar swings)
+    lookback = 500  # scan last 300 bars
+    head_factor = 0.07  # head-valley must dip 3% of that range
+    shoulder_factor = 0.02  # shoulders only 1% dip
+    mpd = 60  # at least 30 bars between any two valleys
+    min_dist = 20  # shoulders ≥60 bars from the head
+    valley_frac = 0.8  # in-between peaks must reclaim 70% of the drop
+    shoulder_peak_tol = 0.02  # neckline pivots within 4% of each other
+    buffer = 20  # integer of number of bars to pass by after a hns pattern is detected
 
     # EMA parameters
     n1 = 20
@@ -189,131 +193,179 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         def channel_div(upper, lower, ratio):
             return lower + (upper - lower) * ratio
 
-        def get_pattern(peaks, prices, pattern, shoulder_tolerance, valley):
-            for i in range(1, len(peaks) - 1):
-                L, H, R = peaks[i - 1], peaks[i], peaks[i + 1]
+        def head_and_shoulder(
+            close,
+            lookback,
+            head_factor,
+            shoulder_factor,
+            mpd,
+            min_dist,
+            valley_frac,
+            shoulder_peak_tol,
+            buffer,
+        ):
 
-                # Ensure valid index range
-                if max(L, H, R) >= len(prices):
-                    continue
-
-                left = prices[L]
-                head = prices[H]
-                right = prices[R]
-
-                # Head higher than both shoulders
-                if valley:
-                    if head < left and head < right:
-                        shoulder_diff = abs(left - right)
-
-                        if shoulder_diff <= shoulder_tolerance * head:
-                            pattern.append((L, H, R))
-
-                if not valley:
-                    if head > left and head > right:
-                        shoulder_diff = abs(left - right)
-
-                        if shoulder_diff <= shoulder_tolerance * head:
-                            pattern.append((L, H, R))
-
-            return pattern
-
-        def get_line(line, close, start, mid, end):
-
-            # 1) interpolate from left shoulder → head
-            seg1 = np.linspace(close[start], close[mid], mid - start + 1)
-            line[start : mid + 1] = seg1
-
-            # 2) interpolate from head → right shoulder
-            seg2 = np.linspace(close[mid], close[end], end - mid + 1)
-            line[mid : end + 1] = seg2
-
-            return line
-
-        def head_and_shoulder(close, lookback, min_prominence, shoulder_tolerance):
+            n = len(close)
             arr = np.full_like(close, np.nan)
             R_arr = np.full_like(close, np.nan)
+            H_arr = np.full_like(close, np.nan)
+
             line = np.full_like(close, close[0])
 
-            # Detect peaks in the price data
-            for j in range(lookback, len(close)):
+            cooldown_pattern = lookback
 
-                prices = close[j - lookback : j]
+            for j in range(lookback, n):
+                window = close[j - lookback : j]
 
-                peaks = detect_peaks(prices, valley=True, threshold=min_prominence)
+                # 2) detect valley indices
+                head_thresh = head_factor * (window.max() - window.min())
+                shoulder_thresh = shoulder_factor * (window.max() - window.min())
 
-                pattern = []
-
-                pattern = get_pattern(
-                    peaks,
-                    prices,
-                    pattern,
-                    shoulder_tolerance,
-                    True,
+                head_vals = detect_peaks(
+                    window, valley=True, mpd=mpd, threshold=head_thresh
                 )
 
-                base = j - lookback
+                shoulder_vals = detect_peaks(
+                    window, valley=True, mpd=mpd, threshold=shoulder_thresh
+                )
 
-                if pattern is not None:
-                    for L, H, R in pattern:
-                        # mark left shoulder, head, right shoulder
-                        start = base + L
-                        mid = base + H
-                        end = base + R
-                        arr[start] = close[start]
-                        arr[mid] = close[mid]
-                        arr[end] = close[end]
-                        # mark the right shoulder
-                        # if the right shoulder is not the same as the previous one
-                        # this is to avoid marking the same shoulder multiple times
-                        if self.R_index_prev != end:
-                            R_arr[end] = end
+                for h in head_vals:
+                    # pick nearest shoulders
+                    lefts = shoulder_vals[shoulder_vals < h]
+                    rights = shoulder_vals[shoulder_vals > h]
+                    if not len(lefts) or not len(rights):
+                        continue
+                    L, R = lefts.max(), rights.min()
 
-                        # safety: skip if out of bounds
-                        if 0 <= start < mid < end < len(close):
-                            continue
+                    # 3) depth & distance checks
+                    if (h - L) < min_dist or (R - h) < min_dist:
+                        continue
+                    if not (window[h] < window[L] and window[h] < window[R]):
+                        continue
 
-                        line = get_line(line, close, start, mid, end)
+                    # 4) peaks for neckline
+                    P1 = window[0:L].max()
+                    P2 = window[h:R].max()
+                    if abs(P1 - P2) > shoulder_peak_tol * ((P1 + P2) / 2):
+                        continue
 
-            return arr, R_arr, line
+                    # 5) valley_frac check: ensure the rebounds between valleys rise enough
+                    if (P1 - window[h]) < valley_frac * (window[L] - window[h]):
+                        continue
+                    if (P2 - window[h]) < valley_frac * (window[R] - window[h]):
+                        continue
 
-        def get_patterns_and_shit(close, lookback, min_prominence, shoulder_tolerance):
-            arr, R_arr, line = head_and_shoulder(
-                close, lookback, min_prominence, shoulder_tolerance
+                    if cooldown_pattern < mpd * 2 + buffer:
+                        cooldown_pattern += 1
+                        continue
+
+                    cooldown_pattern = 0
+
+                    # we’ve got a valid inv-H&S at bar j:
+                    base = j - lookback
+                    start, mid, end = base + L, base + h, base + R
+
+                    # mark valleys & draw lines
+                    arr[[start, mid, end]] = close[[start, mid, end]]
+                    # we will use the end index for now so all of the head & shoulder values are accessible
+                    R_arr[end] = end
+                    H_arr[end] = mid
+
+                    seg1 = np.linspace(close[start], close[mid], mid - start + 1)
+                    seg2 = np.linspace(close[mid], close[end], end - mid + 1)
+                    line[start : mid + 1] = seg1
+                    line[mid : end + 1] = seg2
+
+            return arr, R_arr, H_arr, line
+
+        def get_patterns_and_shit(
+            close,
+            lookback,
+            head_factor,
+            shoulder_factor,
+            mpd,
+            min_dist,
+            valley_frac,
+            shoulder_peak_tol,
+            buffer,
+        ):
+
+            arr, R_arr, H_arr, line = head_and_shoulder(
+                close,
+                lookback,
+                head_factor,
+                shoulder_factor,
+                mpd,
+                min_dist,
+                valley_frac,
+                shoulder_peak_tol,
+                buffer,
             )
 
-            return arr, R_arr
+            return arr, R_arr, H_arr
 
-        def get_line_and_shit(close, lookback, min_prominence, shoulder_tolerance):
-            arr, R_arr, line = head_and_shoulder(
-                close, lookback, min_prominence, shoulder_tolerance
+        def get_line_and_shit(
+            close,
+            lookback,
+            head_factor,
+            shoulder_factor,
+            mpd,
+            min_dist,
+            valley_frac,
+            shoulder_peak_tol,
+            buffer,
+        ):
+            arr, R_arr, H_arr, line = head_and_shoulder(
+                close,
+                lookback,
+                head_factor,
+                shoulder_factor,
+                mpd,
+                min_dist,
+                valley_frac,
+                shoulder_peak_tol,
+                buffer,
             )
 
             return line
 
         # Register indicators
 
-        self.hns_pattern, self.R_detected = self.I(
+        self.hns_arr, self.R_detected, self.H_detected = self.I(
             get_patterns_and_shit,
+            # 1) price series
             self.data.Close,
+            # 2) hyper-parameters
             self.lookback,
-            self.min_prominence,
-            self.shoulder_tolerance,
+            self.head_factor,
+            self.shoulder_factor,
+            self.mpd,
+            self.min_dist,
+            self.valley_frac,
+            self.shoulder_peak_tol,
+            self.buffer,
         )
 
-        self.line = self.I(
+        self.hns_pattern = self.I(
             get_line_and_shit,
+            # 1) price series
             self.data.Close,
+            # 2) hyper-parameters
             self.lookback,
-            self.min_prominence,
-            self.shoulder_tolerance,
+            self.head_factor,
+            self.shoulder_factor,
+            self.mpd,
+            self.min_dist,
+            self.valley_frac,
+            self.shoulder_peak_tol,
+            self.buffer,
         )
 
         # EMA indicators for exit condition
         self.sma1 = self.I(ta.EMA, self.data.Close, self.n1)
         self.sma2 = self.I(ta.EMA, self.data.Close, self.n2)
 
-        # Main regression channel
+        # # Main regression channel
 
         self.upper_band = self.I(
             channel_calc,
@@ -346,35 +398,35 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         )
 
         # Intra (shorter-term) regression channel
-        self.upper_band_intra = self.I(
-            channel_calc,
-            self.data.Close,
-            self.data.Open,
-            True,
-            self.min_channel_length_intra,
-            self.cooldown_intra,
-            self.gap_size_intra,
-            self.volatility_window_intra,
-            self.min_lb_intra,
-            self.max_lb_intra,
-            self.slope_window_intra,
-            self.slope_sensitivity,
-        )
+        # self.upper_band_intra = self.I(
+        #     channel_calc,
+        #     self.data.Close,
+        #     self.data.Open,
+        #     True,
+        #     self.min_channel_length_intra,
+        #     self.cooldown_intra,
+        #     self.gap_size_intra,
+        #     self.volatility_window_intra,
+        #     self.min_lb_intra,
+        #     self.max_lb_intra,
+        #     self.slope_window_intra,
+        #     self.slope_sensitivity,
+        # )
 
-        self.lower_band_intra = self.I(
-            channel_calc,
-            self.data.Close,
-            self.data.Open,
-            False,
-            self.min_channel_length_intra,
-            self.cooldown_intra,
-            self.gap_size_intra,
-            self.volatility_window_intra,
-            self.min_lb_intra,
-            self.max_lb_intra,
-            self.slope_window_intra,
-            self.slope_sensitivity,
-        )
+        # self.lower_band_intra = self.I(
+        #     channel_calc,
+        #     self.data.Close,
+        #     self.data.Open,
+        #     False,
+        #     self.min_channel_length_intra,
+        #     self.cooldown_intra,
+        #     self.gap_size_intra,
+        #     self.volatility_window_intra,
+        #     self.min_lb_intra,
+        #     self.max_lb_intra,
+        #     self.slope_window_intra,
+        #     self.slope_sensitivity,
+        # )
 
         # ZONE INDICATORS: levels between bands at fixed ratios
         self.zone10 = self.I(channel_div, self.upper_band, self.lower_band, 0.10)
@@ -414,9 +466,9 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                 storage.append(storage[-1])
 
         update_slope(self.lower_band, self.slopes)
-        update_slope(self.lower_band_intra, self.slopes_intra)
+        # update_slope(self.lower_band_intra, self.slopes_intra)
 
-        # Current and previous price values
+        # # Current and previous price values
         price, prev_price = self.data.Close[-1], self.data.Close[-2]
         lb, ub = self.lower_band[-1], self.upper_band[-1]
         index = self.data.index[-1]
@@ -425,7 +477,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
         if (
             len(self.slopes) > 1
             and self.slopes[-1] != self.slopes[-2]
-            and len(self.slopes_intra) > 1
+            # and len(self.slopes_intra) > 1
         ):
             self.new_channel_started = True
 
@@ -438,15 +490,18 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             if (
                 not np.isnan(self.R_detected[-1])
                 # and price > self.upper_band
-                # and self.slopes[-1] > self.slopes_intra[-1]
+                # # and self.slopes[-1] > self.slopes_intra[-1]
                 # and self.slopes[-1] < 0
             ):
                 self.buy()
-                self.sl_price = price * 0.95
+                self.sl_price = self.H_detected[-1]
+                print(self.sl_price)
                 self.target_price = price * 1.015
 
         elif self.position and (
-            price >= self.target_price or crossover(self.sma1, self.sma2)
+            price >= self.target_price
+            # or crossover(self.sma1, self.sma2)
+            or price < self.sl_price
         ):
             self.position.close()
             self.new_channel_started = False
