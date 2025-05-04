@@ -20,6 +20,7 @@
         "cerebro",
         "conds",
         "cooldown",
+        "detecta",
         "doji",
         "dotenv",
         "dropna",
@@ -56,7 +57,14 @@
         "tinyllama",
         "todate",
         "Touchpoint",
+        "tradingpatterns",
         "trendline",
         "txamount"
-    ]
+    ],
+    "github.copilot.enable": {
+        "*": true,
+        "plaintext": false,
+        "markdown": false,
+        "scminput": false
+    }
 }
