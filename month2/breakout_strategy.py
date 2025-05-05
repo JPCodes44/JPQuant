@@ -268,8 +268,8 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                     # mark valleys & draw lines
                     arr[[start, mid, end]] = close[[start, mid, end]]
                     # we will use the end index for now so all of the head & shoulder values are accessible
-                    R_arr[end] = end
-                    H_arr[end] = mid
+                    R_arr[end] = close[end]
+                    H_arr[end] = close[mid]
 
                     seg1 = np.linspace(close[start], close[mid], mid - start + 1)
                     seg2 = np.linspace(close[mid], close[end], end - mid + 1)
@@ -496,6 +496,7 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
                 self.buy()
                 self.sl_price = self.H_detected[-1]
                 print(self.sl_price)
+                print(self.R_detected[-1])
                 self.target_price = price * 1.015
 
         elif self.position and (
