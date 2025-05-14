@@ -495,13 +495,11 @@ class SegmentedRegressionWithFinalFitBands(Strategy):
             ):
                 self.buy()
                 self.sl_price = self.H_detected[-1]
-                print(self.sl_price)
-                print(self.R_detected[-1])
-                self.target_price = price * 1.015
+                self.target_price = price * 1.010
 
         elif self.position and (
             price >= self.target_price
-            # or crossover(self.sma1, self.sma2)
+            or crossover(self.sma1, self.sma2)
             or price < self.sl_price
         ):
             self.position.close()

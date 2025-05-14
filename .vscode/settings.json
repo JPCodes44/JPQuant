@@ -7,6 +7,7 @@
         "adfuller",
         "allclose",
         "apikey",
+        "argmin",
         "argrelextrema",
         "backtest",
         "BACKTESTING",
@@ -37,6 +38,8 @@
         "macd",
         "ndarray",
         "ohlcv",
+        "osdown",
+        "osup",
         "pfast",
         "phemex",
         "polyfit",
@@ -62,7 +65,7 @@
         "txamount"
     ],
     "github.copilot.enable": {
-        "*": true,
+        "*": false,
         "plaintext": false,
         "markdown": false,
         "scminput": false
