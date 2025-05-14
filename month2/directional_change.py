@@ -17,7 +17,7 @@ DATA_FOLDER = (
 
 class HarmonicStrategy(Strategy):
 
-    def harmonic_pivot(self, prices, thresh=0.01):
+    def directional_change(self, prices, thresh=0.01):
 
         curr_price = high_price = low_price = prices[0]
 
@@ -55,7 +55,7 @@ class HarmonicStrategy(Strategy):
         return dc_range
 
     def init(self):
-        self.range1 = self.I(self.harmonic_pivot, self.data.Close)
+        self.range1 = self.I(self.directional_change, self.data.Close)
 
     def next(self):
         pass
